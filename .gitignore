@@ -1,0 +1,19 @@
+# ===== Python =====
+venv/
+__pycache__/
+*.pyc
+
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ===== Node =====
+vams-frontend/node_modules/
+vams-frontend/dist/
+
+# ===== Environment =====
+.env
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
