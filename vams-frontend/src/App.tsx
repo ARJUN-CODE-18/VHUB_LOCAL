@@ -9,6 +9,7 @@ import Weather from './components/weather/Weather';
 import Energy from './components/energy/Energy';
 import GroundOps from './components/groundops/GroundOps';
 import Emergency from './components/emergency/Emergency';
+import AircraftDetail from "./components/aircraft/AircraftDetail";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
             <Route path="/energy" element={<Energy />} />
             <Route path="/ground-ops" element={<GroundOps />} />
             <Route path="/emergency" element={<Emergency />} />
+            <Route path="/aircraft/:id" element={<AircraftDetail />} />
 
             {/* Fallback */}
             <Route
