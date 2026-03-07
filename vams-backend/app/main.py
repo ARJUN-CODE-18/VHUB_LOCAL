@@ -14,7 +14,7 @@ from app.db.session import SessionLocal
 from datetime import datetime
 import logging
 from app.api.routes import debug
-
+from app.api.routes import operations
 
 # Import routers
 from app.api.routes import (
@@ -118,6 +118,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(operations.router)
 
 # Include routers
 app.include_router(aircraft.router)
