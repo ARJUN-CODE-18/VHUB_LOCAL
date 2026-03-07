@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { dashboardApi } from '../../api/dashboard';
 import { DashboardStatus } from '../../types/dashboard';
 import ErrorDisplay from '../common/ErrorDisplay';
+import ScheduleTaxiLanding from "./ScheduleTaxiLanding";
 
 const Dashboard = () => {
   const [data, setData] = useState<DashboardStatus | null>(null);
@@ -194,6 +195,10 @@ const Dashboard = () => {
         </Link>
       </div>
 
+      <div>
+        {/* Scheduling */}
+        <ScheduleTaxiLanding />
+      </div>
       {/* Footer */}
       <div className="bg-white rounded-lg shadow p-4">
         <p className="text-sm text-gray-500 text-center">

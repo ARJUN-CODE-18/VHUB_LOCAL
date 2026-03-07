@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { slotsApi } from '../../api/slots';
-import { Slot, SlotStatus } from '../../types/slots';
+import { Slot, SlotStatus } from '../../types/slot';
 import ErrorDisplay from '../common/ErrorDisplay';
 
 const SlotDetail = () => {

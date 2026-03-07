@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { slotsApi } from '../../api/slots';
-import { Slot, SlotStatus } from '../../types/slots';
+import { Slot, SlotStatus } from '../../types/slot';
 
 const getStatusColor = (status: SlotStatus) => {
   switch (status) {

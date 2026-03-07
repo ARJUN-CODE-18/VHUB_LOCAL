@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { slotsApi } from '../../api/slots';
-import { Slot } from '../../types/slots';
+import { Slot } from '../../types/slot';
 import normalizeArray from '../../utils/normalizeArray';
 
 const getStatusColor = (status: string) => {
