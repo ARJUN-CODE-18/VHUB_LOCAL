@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navigation from './components/layout/Navigation';
 import Dashboard from './components/dashboard/Dashboard';
 import AircraftList from './components/aircraft/AircraftList';
@@ -11,9 +11,12 @@ import GroundOps from './components/groundops/GroundOps';
 import Emergency from './components/emergency/Emergency';
 import AircraftDetail from "./components/aircraft/AircraftDetail";
 
+// Use HashRouter for Electron (file:// protocol), BrowserRouter for web
+const Router = window.location.protocol === "file:" ? HashRouter : BrowserRouter;
+
 function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <div className="min-h-screen bg-gray-100">
         <Navigation />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -42,7 +45,7 @@ function App() {
           </Routes>
         </div>
       </div>
-    </BrowserRouter>
+    </Router>
   );
 }
 

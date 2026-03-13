@@ -5,11 +5,11 @@ import { Slot, SlotStatus } from '../../types/slot';
 
 const getStatusColor = (status: SlotStatus) => {
   switch (status) {
-    case SlotStatus.AVAILABLE:
+    case SlotStatus.REQUESTED:
       return 'bg-green-100 text-green-800';
-    case SlotStatus.BOOKED:
+    case SlotStatus.CONFIRMED:
       return 'bg-blue-100 text-blue-800';
-    case SlotStatus.OCCUPIED:
+    case SlotStatus.ACTIVE:
       return 'bg-yellow-100 text-yellow-800';
     case SlotStatus.COMPLETED:
       return 'bg-gray-100 text-gray-800';
@@ -101,7 +101,7 @@ const SlotList = () => {
                   onClick={() => navigate(`/slots/${slot.id}`)}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
-                  <td className="px-6 py-4">{slot.pad_id}</td>
+                  <td className="px-6 py-4">{slot.vertipad_id}</td>
                   <td className="px-6 py-4">
                     {slot.aircraft_id || '—'}
                   </td>

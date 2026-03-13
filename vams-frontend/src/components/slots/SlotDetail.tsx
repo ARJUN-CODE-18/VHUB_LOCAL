@@ -36,7 +36,23 @@ const SlotDetail = () => {
     setError(null);
 
     try {
-      await slotsApi.updateStatus(id, status);
+      switch (status) {
+        case SlotStatus.CONFIRMED:
+          await slotsApi.confirm(id);
+          break;
+        case SlotStatus.ACTIVE:
+          await slotsApi.activate(id);
+          break;
+        case SlotStatus.COMPLETED:
+          await slotsApi.complete(id);
+          break;
+        case SlotStatus.CANCELLED:
+          await slotsApi.cancel(id);
+          break;
+        default:
+          setError(`Unsupported transition to ${status}`);
+          return;
+      }
       await loadSlot();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to update slot');
@@ -70,7 +86,7 @@ const SlotDetail = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <p className="text-sm text-gray-500">Pad</p>
-            <p className="text-lg">{slot.pad_id}</p>
+            <p className="text-lg">{slot.vertipad_id}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Aircraft</p>
@@ -94,7 +110,7 @@ const SlotDetail = () => {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-bold mb-4">Update Status</h2>
         <div className="flex flex-wrap gap-3">
-          {Object.values(SlotStatus).map((status) => (
+          {[SlotStatus.CONFIRMED, SlotStatus.ACTIVE, SlotStatus.COMPLETED, SlotStatus.CANCELLED].map((status) => (
             <button
               key={status}
               onClick={() => updateStatus(status)}

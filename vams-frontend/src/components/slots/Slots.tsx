@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { slotsApi } from '../../api/slots';
-import { Slot } from '../../types/slot';
+import { Slot, SlotStatus } from '../../types/slot';
 import normalizeArray from '../../utils/normalizeArray';
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: SlotStatus) => {
   switch (status) {
-    case 'AVAILABLE':
+    case SlotStatus.REQUESTED:
       return 'bg-green-100 text-green-800';
-    case 'RESERVED':
+    case SlotStatus.CONFIRMED:
       return 'bg-blue-100 text-blue-800';
-    case 'OCCUPIED':
+    case SlotStatus.ACTIVE:
       return 'bg-yellow-100 text-yellow-800';
-    case 'COMPLETED':
+    case SlotStatus.COMPLETED:
       return 'bg-gray-100 text-gray-800';
-    case 'CANCELLED':
+    case SlotStatus.CANCELLED:
       return 'bg-red-100 text-red-800';
     default:
       return 'bg-gray-100 text-gray-800';
@@ -117,7 +117,7 @@ const Slots = () => {
                     {slot.aircraft_id || '—'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    {slot.pad_id}
+                    {slot.vertipad_id}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {new Date(slot.start_time).toLocaleString()}
