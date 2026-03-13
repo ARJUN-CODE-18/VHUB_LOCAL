@@ -1,0 +1,10 @@
+directories:
+  output: release
+  buildResources: build
+appId: com.vertihub.vams
+productName: VAMS
+win:
+  target: nsis
+  signAndEditExecutable: false
+files: []
+electronVersion: 40.8.0
