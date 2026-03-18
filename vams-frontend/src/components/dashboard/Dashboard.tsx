@@ -4,15 +4,34 @@ import { dashboardApi } from '../../api/dashboard';
 import { DashboardStatus } from '../../types/dashboard';
 import ErrorDisplay from '../common/ErrorDisplay';
 import ScheduleTaxiLanding from "./ScheduleTaxiLanding";
+import OperationsPanel from '../operations/OperationsPanel';
+import VertipadTimeline from '../slots/VertipadTimeline';
+import TaxiRoute from '../taxi/TaxiRoute';
+import VertiportTwin from '../vertiport/VertiportTwin';
 
 const Dashboard = () => {
   const [data, setData] = useState<DashboardStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const taxiRoute = ['PAD-1', 'TAXIWAY', 'CHARGING'];
 
   useEffect(() => {
     loadDashboard();
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentStep((prev) => {
+        if (prev >= taxiRoute.length - 1) {
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [taxiRoute.length]);
 
   const loadDashboard = async () => {
     try {
@@ -74,6 +93,32 @@ const Dashboard = () => {
 
   const activeEmergencies =
     emergency.aircraft_emergencies + emergency.locked_pads;
+
+  const aircraftRoutes = [
+    {
+      aircraftId: 'EVTOL-001',
+      route: taxiRoute,
+      currentStep,
+    },
+    {
+      aircraftId: 'EVTOL-002',
+      route: ['PAD-2', 'TAXIWAY', 'CHARGING'],
+      currentStep,
+    },
+  ];
+
+  const slotTimeline = ['PAD-1', 'PAD-2'].map((pad) => {
+    const occupyingAircraft = aircraftRoutes.find(
+      (aircraftRoute) => aircraftRoute.route[aircraftRoute.currentStep] === pad
+    );
+
+    return {
+      vertipad: pad,
+      ...(occupyingAircraft ? { aircraft: occupyingAircraft.aircraftId } : {}),
+      start: '10:00',
+      end: '10:05',
+    };
+  });
 
   /* ================= RENDER ================= */
 
@@ -199,6 +244,19 @@ const Dashboard = () => {
         {/* Scheduling */}
         <ScheduleTaxiLanding />
       </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Vertiport Digital Twin</h2>
+        <VertiportTwin aircraftRoutes={aircraftRoutes} />
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Taxi Route</h2>
+        <TaxiRoute route={taxiRoute} />
+        <OperationsPanel aircraftRoutes={aircraftRoutes} />
+        <VertipadTimeline slots={slotTimeline} />
+      </div>
+
       {/* Footer */}
       <div className="bg-white rounded-lg shadow p-4">
         <p className="text-sm text-gray-500 text-center">

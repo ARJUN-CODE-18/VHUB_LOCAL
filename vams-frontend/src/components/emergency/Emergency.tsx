@@ -1,69 +1,60 @@
 import { useEffect, useState } from 'react';
-import { emergencyApi } from '../../api/emergency';
-import { EmergencyEvent } from '../../types/emergency';
+import { aircraftApi } from '../../api/aircraft';
+import { VertiportEventBus } from '../../controllers/VertiportEventBus';
+import {
+  getEmergencies,
+  syncEmergenciesFromAircraft,
+  type EmergencyAircraft,
+} from '../../state/emergencyStore';
 import ErrorDisplay from '../common/ErrorDisplay';
 
 const Emergency = () => {
-  const [events, setEvents] = useState<EmergencyEvent[]>([]);
+  const [emergencies, setEmergencies] = useState<EmergencyAircraft[]>(
+    getEmergencies(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
+  const refreshEmergencyList = () => {
+    setEmergencies(getEmergencies());
+  };
 
-  const loadEvents = async () => {
+  const loadEmergencyAircraft = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await emergencyApi.getAll();
-      setEvents(data);
+      const aircraft = await aircraftApi.getAll();
+      syncEmergenciesFromAircraft(aircraft);
+      refreshEmergencyList();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load emergency events');
+      setError(err.response?.data?.detail || 'Failed to load emergency aircraft');
     } finally {
       setLoading(false);
     }
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'LOW':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'MEDIUM':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'HIGH':
-        return 'bg-red-100 text-red-800 border-red-300';
-      case 'CRITICAL':
-        return 'bg-red-600 text-white border-red-700';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
+  useEffect(() => {
+    void loadEmergencyAircraft();
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'AIRCRAFT':
-        return '✈️';
-      case 'PAD':
-        return '🅿️';
-      case 'WEATHER':
-        return '🌤️';
-      case 'SYSTEM':
-        return '⚙️';
-      default:
-        return '🚨';
-    }
-  };
+    const update = () => {
+      refreshEmergencyList();
+    };
 
-  // Defensive checks: ensure events is array before filtering
-  const safeEvents = Array.isArray(events) ? events : [];
-  const activeEvents = safeEvents.filter(e => e.status === 'ACTIVE');
-  const resolvedEvents = safeEvents.filter(e => e.status === 'RESOLVED');
+    VertiportEventBus.on('aircraft_state_changed', update);
+    VertiportEventBus.on('emergency_declared', update);
+    VertiportEventBus.on('emergency_resolved', update);
+
+    return () => {
+      VertiportEventBus.off('aircraft_state_changed', update);
+      VertiportEventBus.off('emergency_declared', update);
+      VertiportEventBus.off('emergency_resolved', update);
+    };
+  }, []);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading emergency events...</div>
+        <div className="text-gray-500">Loading emergency aircraft...</div>
       </div>
     );
   }
@@ -73,7 +64,7 @@ const Emergency = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Emergency Management</h1>
         <button
-          onClick={loadEvents}
+          onClick={loadEmergencyAircraft}
           className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
         >
           🔄 Refresh
@@ -82,88 +73,67 @@ const Emergency = () => {
 
       <ErrorDisplay message={error} />
 
-      {/* Active Emergencies */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-900">Active Emergencies</h2>
           <span className={`px-4 py-2 rounded-lg font-bold ${
-            activeEvents.length > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+            emergencies.length > 0
+              ? 'bg-red-100 text-red-800'
+              : 'bg-green-100 text-green-800'
           }`}>
-            {activeEvents.length} Active
+            {emergencies.length} Active Emergencies
           </span>
         </div>
 
-        {activeEvents.length === 0 ? (
+        {emergencies.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             ✓ No active emergencies
           </div>
         ) : (
-          <div className="space-y-4">
-            {activeEvents.map((event) => (
-              <div
-                key={event.id}
-                className={`border-2 rounded-lg p-4 ${getSeverityColor(event.severity)}`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{getTypeIcon(event.event_type)}</span>
-                    <div>
-                      <h3 className="font-bold text-lg">{event.event_type}</h3>
-                      <p className="text-sm opacity-90">{new Date(event.declared_at).toLocaleString()}</p>
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-white bg-opacity-50">
-                    {event.severity}
-                  </span>
-                </div>
-                <p className="mt-2">{event.description}</p>
-                {event.aircraft_id && (
-                  <p className="mt-2 text-sm font-medium">Aircraft: {event.aircraft_id}</p>
-                )}
-                {event.pad_id && (
-                  <p className="mt-1 text-sm font-medium">Pad: {event.pad_id}</p>
-                )}
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Aircraft ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Callsign
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Battery
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Assigned Pad
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {emergencies.map((emergency) => (
+                  <tr key={emergency.id}>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{emergency.id}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{emergency.callsign}</td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                        {emergency.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {emergency.batteryLevel == null ? 'N/A' : `${emergency.batteryLevel}%`}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {emergency.assignedPad ?? 'Unassigned'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
-
-      {/* Resolved Emergencies */}
-      {resolvedEvents.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Resolved Emergencies</h2>
-          <div className="space-y-3">
-            {resolvedEvents.map((event) => (
-              <div
-                key={event.id}
-                className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl opacity-50">{getTypeIcon(event.event_type)}</span>
-                    <div>
-                      <h3 className="font-semibold text-gray-700">{event.event_type}</h3>
-                      <p className="text-xs text-gray-500">
-                        Declared: {new Date(event.declared_at).toLocaleString()}
-                      </p>
-                      {event.resolved_at && (
-                        <p className="text-xs text-gray-500">
-                          Resolved: {new Date(event.resolved_at).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
-                    {event.severity}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-gray-600">{event.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

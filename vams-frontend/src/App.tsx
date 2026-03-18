@@ -5,7 +5,7 @@ import AircraftList from './components/aircraft/AircraftList';
 import RegisterAircraft from './components/aircraft/RegisterAircraft';
 import Pads from './components/pads/Pads';
 import Slots from './components/slots/Slots';
-import Weather from './components/weather/Weather';
+import Weather from './pages/Weather';
 import Energy from './components/energy/Energy';
 import GroundOps from './components/groundops/GroundOps';
 import Emergency from './components/emergency/Emergency';
@@ -30,6 +30,7 @@ function App() {
             <Route path="/weather" element={<Weather />} />
             <Route path="/energy" element={<Energy />} />
             <Route path="/ground-ops" element={<GroundOps />} />
+            <Route path="/groundOps" element={<GroundOps />} />
             <Route path="/emergency" element={<Emergency />} />
             <Route path="/aircraft/:id" element={<AircraftDetail />} />
 

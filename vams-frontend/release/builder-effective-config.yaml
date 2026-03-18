@@ -6,5 +6,8 @@ productName: VAMS
 win:
   target: nsis
   signAndEditExecutable: false
-files: []
+files:
+  - filter:
+      - dist/**/*
+      - electron.js
 electronVersion: 40.8.0

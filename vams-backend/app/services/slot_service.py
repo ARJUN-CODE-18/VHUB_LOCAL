@@ -12,6 +12,7 @@ from app.db.models.aircraft import Aircraft
 from app.db.models.audit import AuditLog
 from app.core.events import EventLogger, EventType, EventSeverity
 from app.core.config import settings
+from app.services.slot_scheduler import has_conflict, find_available_pad
 from fastapi import HTTPException, status
 import uuid
 
@@ -22,11 +23,11 @@ class SlotService:
     @staticmethod
     def create_slot(
         db: Session,
-        vertipad_id: str,
         aircraft_id: str,
         slot_type: SlotType,
         start_time: datetime,
         duration_minutes: int,
+        vertipad_id: Optional[str] = None,
         priority: int = 0,
         operator_id: Optional[str] = None,
     ) -> Slot:
@@ -35,7 +36,7 @@ class SlotService:
         
         Args:
             db: Database session
-            vertipad_id: Target vertipad
+            vertipad_id: Target vertipad (auto-allocated if not provided)
             aircraft_id: Aircraft requesting slot
             slot_type: ARRIVAL or DEPARTURE
             start_time: Slot start time
@@ -49,20 +50,6 @@ class SlotService:
         Raises:
             HTTPException: If validation fails or conflicts exist
         """
-        # Validate vertipad exists and is operational
-        pad = db.query(Vertipad).filter(Vertipad.id == vertipad_id).first()
-        if not pad:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Vertipad {vertipad_id} not found",
-            )
-        
-        if not pad.is_operational:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Vertipad {vertipad_id} is not operational",
-            )
-        
         # Validate aircraft exists
         aircraft = db.query(Aircraft).filter(Aircraft.id == aircraft_id).first()
         if not aircraft:
@@ -86,16 +73,34 @@ class SlotService:
             )
         
         end_time = start_time + timedelta(minutes=duration_minutes)
-        
-        # Check for conflicts
-        conflicts = SlotService._check_slot_conflicts(
-            db, vertipad_id, start_time, end_time, None
-        )
-        
-        if conflicts:
+
+        if not vertipad_id:
+            vertipad_id = find_available_pad(db, start_time, end_time)
+
+        # Validate selected vertipad exists and is operational
+        pad = db.query(Vertipad).filter(Vertipad.id == vertipad_id).first()
+        if not pad:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Slot conflicts with existing reservations: {[c.id for c in conflicts]}",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Vertipad {vertipad_id} not found",
+            )
+
+        if not pad.is_operational:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Vertipad {vertipad_id} is not operational",
+            )
+        
+        existing_slots = (
+            db.query(Slot)
+            .filter(Slot.vertipad_id == vertipad_id)
+            .all()
+        )
+
+        if has_conflict(existing_slots, start_time, end_time):
+            raise HTTPException(
+                status_code=400,
+                detail="Slot conflict detected for this vertipad",
             )
         
         # Create slot
