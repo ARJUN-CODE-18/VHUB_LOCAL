@@ -34,8 +34,8 @@ export interface AircraftSnapshot {
   state?: string;
   current_state?: string;
   is_emergency?: boolean;
-  battery_level?: number;
-  assigned_pad?: string;
+  battery_level?: number | null;
+  assigned_pad?: string | null;
 }
 
 const emergencyMap = new Map<string, EmergencyAircraft>();

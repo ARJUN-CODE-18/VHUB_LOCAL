@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
-
 type TaxiRouteProps = {
   route: string[];
+  aircraftRoutes: AircraftRoute[];
 };
 
 interface AircraftRoute {
@@ -10,48 +9,10 @@ interface AircraftRoute {
   currentStep: number;
 }
 
-const TaxiRoute = ({ route }: TaxiRouteProps) => {
-  const primaryRoute = route.length ? route : ['PAD-1', 'TAXIWAY', 'CHARGING'];
-  const [aircraftRoutes, setAircraftRoutes] = useState<AircraftRoute[]>([
-    {
-      aircraftId: 'EVTOL-001',
-      route: primaryRoute,
-      currentStep: 0,
-    },
-    {
-      aircraftId: 'EVTOL-002',
-      route: ['PAD-2', 'TAXIWAY', 'CHARGING'],
-      currentStep: 0,
-    },
-  ]);
+const TaxiRoute = ({ route, aircraftRoutes }: TaxiRouteProps) => {
+  const hasRoute = route.length > 0;
 
-  useEffect(() => {
-    setAircraftRoutes((prev) =>
-      prev.map((aircraft, index) =>
-        index === 0
-          ? { ...aircraft, route: primaryRoute, currentStep: 0 }
-          : aircraft
-      )
-    );
-  }, [primaryRoute]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAircraftRoutes((prev) =>
-        prev.map((aircraft) => ({
-          ...aircraft,
-          currentStep:
-            aircraft.currentStep < aircraft.route.length - 1
-              ? aircraft.currentStep + 1
-              : aircraft.currentStep,
-        }))
-      );
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  if (!aircraftRoutes.length) {
+  if (!hasRoute || !aircraftRoutes.length) {
     return <p className="text-sm text-gray-500">No taxi route available</p>;
   }
 

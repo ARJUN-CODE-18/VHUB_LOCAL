@@ -5,13 +5,18 @@ Tracks power delivery and battery state of charge.
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
+import logging
 from app.db.models.energy import EnergySession
 from app.db.models.aircraft import Aircraft
 from app.db.models.vertipad import Vertipad
 from app.db.models.audit import AuditLog
 from app.core.events import EventLogger, EventType, EventSeverity
 from app.core.config import settings
+from app.core.pad_catalog import STATIC_PAD_IDS
 from fastapi import HTTPException, status
+
+
+logger = logging.getLogger(__name__)
 
 
 class EnergyService:
@@ -36,6 +41,13 @@ class EnergyService:
         Returns:
             Created energy session
         """
+        if vertipad_id not in STATIC_PAD_IDS:
+            logger.warning("Rejected charging start for unknown pad_id=%s", vertipad_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid pad_id: {vertipad_id}",
+            )
+
         # Validate vertipad
         pad = db.query(Vertipad).filter(Vertipad.id == vertipad_id).first()
         if not pad:

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 from app.core.fsm.vertipad_fsm import VertipadState
+from app.core.priority import PriorityLevel
 
 
 class VertipadInitialize(BaseModel):
@@ -27,12 +28,20 @@ class VertipadStateTransition(BaseModel):
 class VertipadOccupy(BaseModel):
     """Schema for occupying pad"""
     aircraft_id: str
+    priority: PriorityLevel = PriorityLevel.NORMAL
+
+
+class PadQueueEntry(BaseModel):
+    aircraft_id: str
+    priority: PriorityLevel
+    timestamp: float
 
 
 class VertipadResponse(BaseModel):
     """Schema for vertipad response"""
     id: str
     state: VertipadState
+    status: str
     name: str
     latitude: float
     longitude: float
@@ -45,6 +54,7 @@ class VertipadResponse(BaseModel):
     has_weather_station: bool
     is_operational: bool
     current_aircraft_id: Optional[str]
+    queue: list[PadQueueEntry] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

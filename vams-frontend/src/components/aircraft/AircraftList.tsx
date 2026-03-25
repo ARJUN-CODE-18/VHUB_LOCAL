@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { aircraftApi } from '../../api/aircraft';
+import { VertiportEventBus } from '../../controllers/VertiportEventBus';
 import { Aircraft } from '../../types/aircraft';
 import ErrorDisplay from '../common/ErrorDisplay';
 import normalizeArray from '../../utils/normalizeArray';
+import { getAircraftList, setAircraftList } from '../../state/aircraftStore';
 
 const AircraftList = () => {
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
@@ -12,7 +14,24 @@ const AircraftList = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadAircraft();
+    const refreshList = () => {
+      const storedAircraft = getAircraftList();
+      setAircraft(normalizeArray<Aircraft>(storedAircraft));
+    };
+
+    void loadAircraft();
+
+    VertiportEventBus.on('aircraft_added', refreshList);
+    VertiportEventBus.on('aircraft_updated', refreshList);
+    VertiportEventBus.on('aircraft_removed', refreshList);
+    VertiportEventBus.on('aircraft_state_changed', refreshList);
+
+    return () => {
+      VertiportEventBus.off('aircraft_added', refreshList);
+      VertiportEventBus.off('aircraft_updated', refreshList);
+      VertiportEventBus.off('aircraft_removed', refreshList);
+      VertiportEventBus.off('aircraft_state_changed', refreshList);
+    };
   }, []);
 
   const loadAircraft = async () => {
@@ -21,7 +40,8 @@ const AircraftList = () => {
       setError(null);
       const data = await aircraftApi.getAll();
       const normalized = normalizeArray<Aircraft>(data);
-      setAircraft(normalized);
+      setAircraftList(normalized);
+      setAircraft(normalizeArray<Aircraft>(getAircraftList()));
     } catch (err: unknown) {
       let message = 'Failed to load aircraft';
       if (err instanceof Error) message = err.message;
@@ -110,7 +130,7 @@ const AircraftList = () => {
               aircraft.map((ac) => (
                 <tr
                   key={ac.id}
-                  onClick={() => navigate(`/aircraft/${ac.id}`)}
+                  onClick={() => navigate(`/aircraft/${encodeURIComponent(ac.id)}`)}
                   className="hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">

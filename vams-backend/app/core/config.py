@@ -5,6 +5,7 @@ Environment-based settings with validation.
 from pydantic_settings import BaseSettings
 from typing import Optional
 from pathlib import Path
+from app.core.pad_catalog import STATIC_PAD_IDS
 
 
 class Settings(BaseSettings):
@@ -33,6 +34,7 @@ class Settings(BaseSettings):
     # Vertipad configuration
     VERTIPAD_ID: str = "VP-001"
     VERTIPAD_CAPACITY: int = 1
+    ALLOWED_PAD_IDS: tuple[str, ...] = STATIC_PAD_IDS
     
     # Operational limits
     MAX_SLOT_BOOKING_HOURS: int = 24

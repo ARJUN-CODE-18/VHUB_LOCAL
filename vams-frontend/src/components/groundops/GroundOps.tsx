@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { aircraftApi } from '../../api/aircraft';
 import { padsApi } from '../../api/pads';
+import { VertiportEventBus } from '../../controllers/VertiportEventBus';
+import { getAircraftList } from '../../state/aircraftStore';
 import { Pad, PadStatus } from '../../types/pads';
 import ErrorDisplay from '../common/ErrorDisplay';
 
@@ -19,7 +20,23 @@ const GroundOps = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadGroundOps();
+    void loadGroundOps();
+
+    const refresh = () => {
+      void loadGroundOps();
+    };
+
+    VertiportEventBus.on('aircraft_added', refresh);
+    VertiportEventBus.on('aircraft_updated', refresh);
+    VertiportEventBus.on('aircraft_removed', refresh);
+    VertiportEventBus.on('aircraft_state_changed', refresh);
+
+    return () => {
+      VertiportEventBus.off('aircraft_added', refresh);
+      VertiportEventBus.off('aircraft_updated', refresh);
+      VertiportEventBus.off('aircraft_removed', refresh);
+      VertiportEventBus.off('aircraft_state_changed', refresh);
+    };
   }, []);
 
   const loadGroundOps = async () => {
@@ -27,10 +44,8 @@ const GroundOps = () => {
       setLoading(true);
       setError(null);
 
-      const [, pads] = await Promise.all([
-        aircraftApi.getAll(),
-        padsApi.getAll()
-      ]);
+      const pads = await padsApi.getAll();
+      const aircraftIds = new Set(getAircraftList().map((aircraft) => aircraft.id));
 
       const derivedOps: GroundOperation[] = [];
 
@@ -38,6 +53,10 @@ const GroundOps = () => {
       const safePads = Array.isArray(pads) ? pads : [];
       safePads.forEach((pad: Pad) => {
         if (pad.status === PadStatus.CHARGING && pad.aircraft_id) {
+          if (!aircraftIds.has(pad.aircraft_id)) {
+            return;
+          }
+
           derivedOps.push({
             id: `charge-${pad.id}`,
             operation_type: 'CHARGING',
@@ -59,6 +78,10 @@ const GroundOps = () => {
         }
 
         if (pad.status === PadStatus.OCCUPIED && pad.aircraft_id) {
+          if (!aircraftIds.has(pad.aircraft_id)) {
+            return;
+          }
+
           derivedOps.push({
             id: `park-${pad.id}`,
             operation_type: 'PARKED',
@@ -72,6 +95,7 @@ const GroundOps = () => {
 
       setOperations(derivedOps);
     } catch (err: any) {
+      console.error('API error loading ground operations:', err);
       setError('Failed to load ground operations');
     } finally {
       setLoading(false);

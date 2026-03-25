@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { aircraftApi } from '../../api/aircraft';
+import { VertiportEventBus } from '../../controllers/VertiportEventBus';
+import {
+  getAircraftList,
+  updateAircraft,
+} from '../../state/aircraftStore';
 import { Aircraft, AircraftState } from '../../types/aircraft';
 import ErrorDisplay from '../common/ErrorDisplay';
 
@@ -26,6 +31,7 @@ const VALID_TRANSITIONS: Record<AircraftState, AircraftState[]> = {
 
 const AircraftDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const selectedAircraftId = id ? decodeURIComponent(id) : undefined;
   const navigate = useNavigate();
   const [aircraft, setAircraft] = useState<Aircraft | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,37 +41,101 @@ const AircraftDetail = () => {
 
   // Load aircraft on mount or when id changes
   useEffect(() => {
-    loadAircraft();
-  }, [id]);
-
-  const loadAircraft = async () => {
-    if (!id) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await aircraftApi.getById(id);
-      setAircraft(data);
-      setBatteryInput(data.battery_level?.toString() ?? '');
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'response' in err) {
-        const error = err as { response?: { data?: { detail?: string } } };
-        setError(error.response?.data?.detail || 'Failed to load aircraft');
-      } else {
-        setError('Failed to load aircraft');
+    const refreshFromStore = () => {
+      if (!selectedAircraftId) {
+        setLoading(false);
+        return;
       }
-    } finally {
+
+      const fromStore = getAircraftList().find(
+        (item) => item.id === selectedAircraftId,
+      );
+
+      console.log('Selected Aircraft ID:', selectedAircraftId);
+      console.log('Aircraft Data:', fromStore);
+
+      if (!fromStore) {
+        setAircraft(null);
+        setLoading(false);
+        return;
+      }
+
+      setAircraft((prev) => {
+        const resolvedState =
+          (fromStore.state as AircraftState) ??
+          prev?.state ??
+          AircraftState.APPROACH;
+
+        return {
+          ...(prev ?? {}),
+          id: selectedAircraftId,
+          tail_number: fromStore.tail_number ?? prev?.tail_number ?? 'N/A',
+          aircraft_type: fromStore.aircraft_type ?? prev?.aircraft_type ?? 'N/A',
+          operator: fromStore.operator ?? prev?.operator ?? 'N/A',
+          weight_kg: fromStore.weight_kg ?? fromStore.weight ?? prev?.weight_kg ?? 0,
+          max_range_km:
+            fromStore.max_range_km ?? fromStore.maxRange ?? prev?.max_range_km ?? 0,
+          battery_level:
+            fromStore.battery_level ?? fromStore.battery ?? prev?.battery_level ?? 0,
+          callsign:
+            fromStore.callsign
+            ?? prev?.callsign
+            ?? fromStore.tail_number
+            ?? prev?.tail_number
+            ?? selectedAircraftId,
+          state: resolvedState,
+          current_state: resolvedState,
+          is_emergency: fromStore.is_emergency ?? prev?.is_emergency ?? false,
+          created_at: fromStore.created_at ?? prev?.created_at ?? new Date().toISOString(),
+          updated_at: fromStore.updated_at ?? prev?.updated_at ?? new Date().toISOString(),
+        };
+      });
+
+      setBatteryInput(
+        fromStore.battery_level == null ? '' : String(fromStore.battery_level),
+      );
+
       setLoading(false);
-    }
-  };
+    };
+
+    refreshFromStore();
+
+    VertiportEventBus.on('aircraft_added', refreshFromStore);
+    VertiportEventBus.on('aircraft_updated', refreshFromStore);
+    VertiportEventBus.on('aircraft_removed', refreshFromStore);
+    VertiportEventBus.on('aircraft_state_changed', refreshFromStore);
+
+    return () => {
+      VertiportEventBus.off('aircraft_added', refreshFromStore);
+      VertiportEventBus.off('aircraft_updated', refreshFromStore);
+      VertiportEventBus.off('aircraft_removed', refreshFromStore);
+      VertiportEventBus.off('aircraft_state_changed', refreshFromStore);
+    };
+  }, [selectedAircraftId]);
 
   const handleTransition = async (targetState: AircraftState) => {
-    if (!id) return;
+    if (!selectedAircraftId) return;
     setActionLoading(true);
     setError(null);
 
     try {
-      await aircraftApi.transition(id, { target_state: targetState });
-      await loadAircraft();
+      const updated = await aircraftApi.transition(selectedAircraftId, { target_state: targetState });
+      updateAircraft(selectedAircraftId, {
+        state: updated.state,
+        battery_level: updated.battery_level,
+        is_emergency: updated.is_emergency,
+      });
+      VertiportEventBus.emit('aircraft_state_changed', {
+        aircraftId: selectedAircraftId,
+        state: updated.state,
+        newState: updated.state,
+      });
+      VertiportEventBus.emit('aircraft_updated', {
+        id: selectedAircraftId,
+        state: updated.state,
+        battery_level: updated.battery_level,
+        is_emergency: updated.is_emergency,
+      });
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
         const error = err as { response?: { data?: { detail?: string } } };
@@ -79,7 +149,7 @@ const AircraftDetail = () => {
   };
 
   const handleUpdateBattery = async () => {
-    if (!id) return;
+    if (!selectedAircraftId) return;
     const level = parseFloat(batteryInput);
     if (isNaN(level) || level < 0 || level > 100) {
       setError('Battery level must be between 0 and 100');
@@ -90,8 +160,18 @@ const AircraftDetail = () => {
     setError(null);
 
     try {
-      await aircraftApi.updateBattery(id, level);
-      await loadAircraft();
+      const updated = await aircraftApi.updateBattery(selectedAircraftId, level);
+      updateAircraft(selectedAircraftId, {
+        battery_level: updated.battery_level,
+        state: updated.state,
+        is_emergency: updated.is_emergency,
+      });
+      VertiportEventBus.emit('aircraft_updated', {
+        id: selectedAircraftId,
+        battery_level: updated.battery_level,
+        state: updated.state,
+        is_emergency: updated.is_emergency,
+      });
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
         const error = err as { response?: { data?: { detail?: string } } };
@@ -105,26 +185,15 @@ const AircraftDetail = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading aircraft details...</div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   if (!aircraft) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-600 mb-4">Aircraft not found</p>
-        <button
-          onClick={() => navigate('/aircraft')}
-          className="text-primary-600 hover:text-primary-800"
-        >
-          ← Back to Aircraft List
-        </button>
-      </div>
-    );
+    return <div>Aircraft Not Found</div>;
   }
+
+  const weight = aircraft.weight ?? aircraft.weight_kg;
+  const maxRange = aircraft.maxRange ?? aircraft.max_range_km;
 
   const validNextStates = VALID_TRANSITIONS[aircraft.state] || [];
 
@@ -146,6 +215,7 @@ const AircraftDetail = () => {
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{aircraft.tail_number}</h1>
+            <h2 className="text-base font-semibold text-gray-700 mt-1">Aircraft ID: {aircraft.id}</h2>
             <p className="text-gray-500 mt-1">{aircraft.aircraft_type}</p>
           </div>
           {aircraft.is_emergency && (
@@ -156,6 +226,10 @@ const AircraftDetail = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-1">Callsign</h3>
+            <p className="text-lg text-gray-900">{aircraft.callsign ?? aircraft.tail_number ?? 'N/A'}</p>
+          </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-1">Operator</h3>
             <p className="text-lg text-gray-900">{aircraft.operator}</p>
@@ -170,11 +244,11 @@ const AircraftDetail = () => {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-1">Weight</h3>
-            <p className="text-lg text-gray-900">{aircraft.weight_kg ?? 'N/A'} kg</p>
+            <p className="text-lg text-gray-900">{weight != null ? `${weight} kg` : 'N/A'}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-1">Max Range</h3>
-            <p className="text-lg text-gray-900">{aircraft.max_range_km ?? 'N/A'} km</p>
+            <p className="text-lg text-gray-900">{maxRange != null ? `${maxRange} km` : 'N/A'}</p>
           </div>
           {aircraft.position && (
             <div>

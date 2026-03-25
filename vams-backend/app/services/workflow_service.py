@@ -5,6 +5,7 @@ Coordinates aircraft, pad, and slot FSMs for complete operations.
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
+import logging
 from app.db.models.workflow import Workflow
 from app.db.models.aircraft import Aircraft
 from app.db.models.vertipad import Vertipad
@@ -12,7 +13,11 @@ from app.db.models.slot import Slot
 from app.db.models.audit import AuditLog
 from app.core.fsm.workflow_fsm import WorkflowFSM, WorkflowType, WorkflowState, WorkflowFSMViolation
 from app.core.events import EventLogger, EventType, EventSeverity
+from app.core.pad_catalog import STATIC_PAD_IDS
 from fastapi import HTTPException, status
+
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowService:
@@ -41,6 +46,13 @@ class WorkflowService:
         Returns:
             Created workflow entity
         """
+        if vertipad_id not in STATIC_PAD_IDS:
+            logger.warning("Rejected workflow initiation for unknown pad_id=%s", vertipad_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid pad_id: {vertipad_id}",
+            )
+
         # Validate aircraft
         aircraft = db.query(Aircraft).filter(Aircraft.id == aircraft_id).first()
         if not aircraft:

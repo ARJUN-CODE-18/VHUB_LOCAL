@@ -5,13 +5,18 @@ Validates weather constraints for safe operations.
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
+import logging
 from app.db.models.weather import WeatherReport
 from app.db.models.vertipad import Vertipad
 from app.db.models.audit import AuditLog
 from app.core.events import EventLogger, EventType, EventSeverity
 from app.core.config import settings
+from app.core.pad_catalog import STATIC_PAD_IDS
 from fastapi import HTTPException, status
 import math
+
+
+logger = logging.getLogger(__name__)
 
 
 class WeatherService:
@@ -58,6 +63,13 @@ class WeatherService:
         Returns:
             Created weather report
         """
+        if vertipad_id not in STATIC_PAD_IDS:
+            logger.warning("Rejected weather report for unknown pad_id=%s", vertipad_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid pad_id: {vertipad_id}",
+            )
+
         # Validate vertipad exists
         pad = db.query(Vertipad).filter(Vertipad.id == vertipad_id).first()
         if not pad:
@@ -157,6 +169,13 @@ class WeatherService:
     @staticmethod
     def get_latest_weather(db: Session, vertipad_id: str) -> Optional[WeatherReport]:
         """Get the most recent weather report for a vertipad"""
+        if vertipad_id not in STATIC_PAD_IDS:
+            logger.warning("Rejected latest weather query for unknown pad_id=%s", vertipad_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid pad_id: {vertipad_id}",
+            )
+
         return (
             db.query(WeatherReport)
             .filter(WeatherReport.vertipad_id == vertipad_id)

@@ -31,6 +31,7 @@ class VertipadFSM:
     
     TRANSITIONS = {
         VertipadState.AVAILABLE: {
+            VertipadState.OCCUPIED,
             VertipadState.RESERVED,
             VertipadState.MAINTENANCE,
             VertipadState.EMERGENCY_LOCKED,

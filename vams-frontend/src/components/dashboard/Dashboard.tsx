@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboardApi } from '../../api/dashboard';
+import { VertiportEventBus } from '../../controllers/VertiportEventBus';
+import { getAircraftList, type AircraftStoreItem } from '../../state/aircraftStore';
 import { DashboardStatus } from '../../types/dashboard';
 import ErrorDisplay from '../common/ErrorDisplay';
 import ScheduleTaxiLanding from "./ScheduleTaxiLanding";
@@ -11,27 +13,45 @@ import VertiportTwin from '../vertiport/VertiportTwin';
 
 const Dashboard = () => {
   const [data, setData] = useState<DashboardStatus | null>(null);
+  const [aircraftFromStore, setAircraftFromStore] = useState<AircraftStoreItem[]>(
+    getAircraftList(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const taxiRoute = ['PAD-1', 'TAXIWAY', 'CHARGING'];
+  const [selectedAircraft, setSelectedAircraft] = useState<AircraftStoreItem | undefined>();
+
+  const refreshAircraft = () => {
+    const updated = getAircraftList();
+    setAircraftFromStore(updated);
+    
+    // Clear selection if aircraft was removed
+    if (selectedAircraft && !updated.find(a => a.id === selectedAircraft.id)) {
+      setSelectedAircraft(undefined);
+    } else if (selectedAircraft) {
+      // Update selected aircraft with latest data
+      const latest = updated.find(a => a.id === selectedAircraft.id);
+      if (latest) {
+        setSelectedAircraft(latest);
+      }
+    }
+  };
 
   useEffect(() => {
-    loadDashboard();
+    void loadDashboard();
+    refreshAircraft();
+
+    VertiportEventBus.on('aircraft_added', refreshAircraft);
+    VertiportEventBus.on('aircraft_updated', refreshAircraft);
+    VertiportEventBus.on('aircraft_removed', refreshAircraft);
+    VertiportEventBus.on('aircraft_state_changed', refreshAircraft);
+
+    return () => {
+      VertiportEventBus.off('aircraft_added', refreshAircraft);
+      VertiportEventBus.off('aircraft_updated', refreshAircraft);
+      VertiportEventBus.off('aircraft_removed', refreshAircraft);
+      VertiportEventBus.off('aircraft_state_changed', refreshAircraft);
+    };
   }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev >= taxiRoute.length - 1) {
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [taxiRoute.length]);
 
   const loadDashboard = async () => {
     try {
@@ -40,6 +60,7 @@ const Dashboard = () => {
       const result = await dashboardApi.getStatus();
       setData(result);
     } catch (err) {
+      console.error('API error loading dashboard status:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -69,9 +90,15 @@ const Dashboard = () => {
 
   /* ================= SAFE NORMALIZATION ================= */
 
-  const aircraft = data.aircraft ?? {
-    total: 0,
-    by_state: {},
+  const byState = aircraftFromStore.reduce<Record<string, number>>((acc, aircraft) => {
+    const key = aircraft.state ?? 'UNKNOWN';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const aircraft = {
+    total: aircraftFromStore.length,
+    by_state: byState,
   };
 
   const vertipads = data.vertipads ?? {
@@ -79,6 +106,11 @@ const Dashboard = () => {
     available: 0,
     occupied: 0,
   };
+
+  const occupiedPads = (vertipads.status ?? []).filter(
+    (pad) => pad.current_aircraft_id !== null,
+  ).length;
+  const availablePads = Math.max((vertipads.total ?? 0) - occupiedPads, 0);
 
   const slots = data.slots ?? {
     upcoming_count: 0,
@@ -94,31 +126,53 @@ const Dashboard = () => {
   const activeEmergencies =
     emergency.aircraft_emergencies + emergency.locked_pads;
 
-  const aircraftRoutes = [
-    {
-      aircraftId: 'EVTOL-001',
-      route: taxiRoute,
-      currentStep,
-    },
-    {
-      aircraftId: 'EVTOL-002',
-      route: ['PAD-2', 'TAXIWAY', 'CHARGING'],
-      currentStep,
-    },
-  ];
+  const padToTwinNode = (padId?: string | null): string | null => {
+    if (!padId) {
+      return null;
+    }
 
-  const slotTimeline = ['PAD-1', 'PAD-2'].map((pad) => {
-    const occupyingAircraft = aircraftRoutes.find(
-      (aircraftRoute) => aircraftRoute.route[aircraftRoute.currentStep] === pad
-    );
+    const normalized = padId.toUpperCase();
+    if (normalized.startsWith("PAD_")) {
+      return normalized;
+    }
+    if (normalized.startsWith("PAD-")) {
+      return normalized.replace("PAD-", "PAD_");
+    }
 
-    return {
-      vertipad: pad,
-      ...(occupyingAircraft ? { aircraft: occupyingAircraft.aircraftId } : {}),
-      start: '10:00',
-      end: '10:05',
-    };
-  });
+    const vpMatch = normalized.match(/^VP-(\d+)$/);
+    if (vpMatch?.[1]) {
+      const suffix = Number(vpMatch[1]);
+      if (!Number.isNaN(suffix)) {
+        return `PAD_${suffix}`;
+      }
+    }
+
+    return null;
+  };
+
+  const aircraftRoutes = aircraftFromStore
+    .map((aircraftItem) => {
+      const node = padToTwinNode(aircraftItem.pad_id ?? aircraftItem.assigned_pad ?? null);
+      if (!node) {
+        return null;
+      }
+
+      return {
+        aircraftId: aircraftItem.id,
+        route: [node],
+        currentStep: 0,
+      };
+    })
+    .filter((item): item is { aircraftId: string; route: string[]; currentStep: number } => item !== null);
+
+  const taxiRoute = ['PAD-1', 'TAXIWAY', 'CHARGING'];
+
+  const slotTimeline = (data.vertipads?.status ?? []).map((padStatus) => ({
+    vertipad: padToTwinNode(padStatus.id) ?? padStatus.id,
+    ...(padStatus.current_aircraft_id ? { aircraft: padStatus.current_aircraft_id } : {}),
+    start: '10:00',
+    end: '10:05',
+  }));
 
   /* ================= RENDER ================= */
 
@@ -177,13 +231,13 @@ const Dashboard = () => {
                 Available Pads
               </p>
               <p className="text-3xl font-bold text-gray-900">
-                {vertipads.available}
+                {availablePads}
               </p>
             </div>
             <div className="text-4xl">🅿️</div>
           </div>
           <p className="mt-2 text-sm text-gray-500">
-            {vertipads.occupied} occupied / {vertipads.total} total
+            {occupiedPads} occupied / {vertipads.total} total
           </p>
         </Link>
 
@@ -247,12 +301,16 @@ const Dashboard = () => {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Vertiport Digital Twin</h2>
-        <VertiportTwin aircraftRoutes={aircraftRoutes} />
+        <VertiportTwin 
+          aircraftRoutes={aircraftRoutes}
+          selectedAircraft={selectedAircraft}
+          onSelectAircraft={setSelectedAircraft}
+        />
       </div>
 
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Taxi Route</h2>
-        <TaxiRoute route={taxiRoute} />
+        <TaxiRoute route={taxiRoute} aircraftRoutes={aircraftRoutes} />
         <OperationsPanel aircraftRoutes={aircraftRoutes} />
         <VertipadTimeline slots={slotTimeline} />
       </div>

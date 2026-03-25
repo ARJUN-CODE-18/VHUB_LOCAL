@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { aircraftApi } from '../../api/aircraft';
 import { VertiportEventBus } from '../../controllers/VertiportEventBus';
+import { getAircraftList } from '../../state/aircraftStore';
 import {
   getEmergencies,
   syncEmergenciesFromAircraft,
@@ -23,11 +23,15 @@ const Emergency = () => {
     try {
       setLoading(true);
       setError(null);
-      const aircraft = await aircraftApi.getAll();
+      const aircraft = getAircraftList();
       syncEmergenciesFromAircraft(aircraft);
       refreshEmergencyList();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load emergency aircraft');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to load emergency aircraft');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,11 +45,17 @@ const Emergency = () => {
     };
 
     VertiportEventBus.on('aircraft_state_changed', update);
+    VertiportEventBus.on('aircraft_added', update);
+    VertiportEventBus.on('aircraft_updated', update);
+    VertiportEventBus.on('aircraft_removed', update);
     VertiportEventBus.on('emergency_declared', update);
     VertiportEventBus.on('emergency_resolved', update);
 
     return () => {
       VertiportEventBus.off('aircraft_state_changed', update);
+      VertiportEventBus.off('aircraft_added', update);
+      VertiportEventBus.off('aircraft_updated', update);
+      VertiportEventBus.off('aircraft_removed', update);
       VertiportEventBus.off('emergency_declared', update);
       VertiportEventBus.off('emergency_resolved', update);
     };

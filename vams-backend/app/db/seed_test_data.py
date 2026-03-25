@@ -8,14 +8,12 @@ import uuid
 
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine
-from app.db.base import Base
 from app.db.models.aircraft import Aircraft, AircraftState
-from app.db.models.pad import Vertipad
+from app.db.models.vertipad import Vertipad
 from app.db.models.slot import Slot, SlotType, SlotStatus
+from app.core.pad_catalog import STATIC_PAD_IDS
 
-# Create tables if they don't exist
 engine = create_engine("sqlite:///./test.db")  # Update with your database URL
-Base.metadata.create_all(bind=engine)
 
 def seed_data(session: Session):
     # --- Aircraft ---
@@ -49,19 +47,16 @@ def seed_data(session: Session):
     session.commit()
 
     # --- Vertipads ---
-    pad_list = [
-        Vertipad(id="PAD-01", name="Pad 1", latitude=12.9716, longitude=77.5946),
-        Vertipad(id="PAD-02", name="Pad 2", latitude=12.9352, longitude=77.6245),
-    ]
-    session.add_all(pad_list)
-    session.commit()
+    pad_list = session.query(Vertipad).filter(Vertipad.id.in_(STATIC_PAD_IDS)).all()
+    if len(pad_list) < 2:
+        raise RuntimeError("Static pads VP-001 and VP-002 must exist before seeding test data")
 
     # --- Slots ---
     now = datetime.utcnow()
     slot_list = [
         Slot(
             id=str(uuid.uuid4()),
-            vertipad_id="PAD-01",
+            vertipad_id="VP-001",
             aircraft_id=aircraft_list[0].id,
             slot_type=SlotType.ARRIVAL,
             status=SlotStatus.CONFIRMED,
@@ -72,7 +67,7 @@ def seed_data(session: Session):
         ),
         Slot(
             id=str(uuid.uuid4()),
-            vertipad_id="PAD-01",
+            vertipad_id="VP-001",
             aircraft_id=aircraft_list[1].id,
             slot_type=SlotType.DEPARTURE,
             status=SlotStatus.CONFIRMED,
@@ -83,7 +78,7 @@ def seed_data(session: Session):
         ),
         Slot(
             id=str(uuid.uuid4()),
-            vertipad_id="PAD-02",
+            vertipad_id="VP-002",
             aircraft_id=aircraft_list[2].id,
             slot_type=SlotType.ARRIVAL,
             status=SlotStatus.CONFIRMED,
@@ -94,7 +89,7 @@ def seed_data(session: Session):
         ),
         Slot(
             id=str(uuid.uuid4()),
-            vertipad_id="PAD-02",
+            vertipad_id="VP-002",
             aircraft_id=aircraft_list[0].id,
             slot_type=SlotType.DEPARTURE,
             status=SlotStatus.REQUESTED,
@@ -105,7 +100,7 @@ def seed_data(session: Session):
         ),
         Slot(
             id=str(uuid.uuid4()),
-            vertipad_id="PAD-01",
+            vertipad_id="VP-001",
             aircraft_id=aircraft_list[1].id,
             slot_type=SlotType.ARRIVAL,
             status=SlotStatus.REQUESTED,

@@ -1,22 +1,22 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../config/runtime';
 
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: API_BASE_URL,
   timeout: 10000,
 });
 
 // Interceptor to attach API key to all requests
 http.interceptors.request.use((config) => {
-  const apiKey = import.meta.env.VITE_API_KEY;
+  const apiKey = import.meta.env.VITE_API_KEY || 'dev-operator-key';
+  const apiKeyHeader = import.meta.env.VITE_API_KEY_HEADER || 'X-API-Key';
 
-  if (!apiKey) {
-    console.warn('[api-client] VITE_API_KEY is missing in .env');
-  } else {
-    // Add API key header
-    config.headers['X-API-Key'] = apiKey;
+  // Add API key header expected by backend auth dependency.
+  config.headers[apiKeyHeader] = apiKey;
+
+  if (import.meta.env.DEV) {
+    console.log('[api-client] Outgoing request:', config.method, config.url);
   }
-
-  console.log('[api-client] Outgoing request:', config.method, config.url, 'X-API-Key:', config.headers['X-API-Key']);
   return config;
 });
 

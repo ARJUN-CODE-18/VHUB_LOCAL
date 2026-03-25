@@ -30,9 +30,10 @@ class AircraftBatteryUpdate(BaseModel):
 
 class AircraftPositionUpdate(BaseModel):
     """Schema for position update"""
-    latitude: float = Field(..., ge=-90, le=90)
-    longitude: float = Field(..., ge=-180, le=180)
-    altitude_m: float = Field(..., ge=0)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    altitude_m: Optional[float] = Field(None, ge=0)
+    pad_id: Optional[str] = Field(None, min_length=1, max_length=20)
 
 
 class AircraftResponse(BaseModel):
@@ -50,6 +51,7 @@ class AircraftResponse(BaseModel):
     last_latitude: Optional[float]
     last_longitude: Optional[float]
     last_altitude_m: Optional[float]
+    pad_id: Optional[str]
     last_position_update: Optional[datetime]
     created_at: datetime
     updated_at: datetime

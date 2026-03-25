@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navigation from './components/layout/Navigation';
 import Dashboard from './components/dashboard/Dashboard';
@@ -15,11 +16,16 @@ import AircraftDetail from "./components/aircraft/AircraftDetail";
 const Router = window.location.protocol === "file:" ? HashRouter : BrowserRouter;
 
 function App() {
+  useEffect(() => {
+    console.log('VAMS BUILD VERSION: V3-LATEST');
+  }, []);
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-100">
         <Navigation />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h1 className="text-sm font-semibold text-blue-700 mb-4">VAMS VERSION V3</h1>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />

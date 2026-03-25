@@ -1,8 +1,9 @@
 import axios, { AxiosError } from 'axios';
 import { ApiError } from '../types/api';
+import { API_BASE_URL } from '../config/runtime';
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: API_BASE_URL,
   timeout: 10000,
 });
 
@@ -10,11 +11,9 @@ export const http = axios.create({
  * Attach API key to every request
  */
 http.interceptors.request.use((config) => {
-  const apiKey = import.meta.env.VITE_API_KEY;
+  const apiKey = import.meta.env.VITE_API_KEY || 'dev-operator-key';
 
-  if (apiKey) {
-    config.headers['X-API-Key'] = apiKey;
-  }
+  config.headers['X-API-Key'] = apiKey;
 
   if (import.meta.env.DEV) {
     console.log(

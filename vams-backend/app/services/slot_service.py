@@ -6,15 +6,21 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from typing import List, Optional
 from datetime import datetime, timedelta
+import logging
 from app.db.models.slot import Slot, SlotType, SlotStatus
 from app.db.models.vertipad import Vertipad
 from app.db.models.aircraft import Aircraft
 from app.db.models.audit import AuditLog
 from app.core.events import EventLogger, EventType, EventSeverity
 from app.core.config import settings
+from app.core.fsm.pad_fsm import VertipadState
+from app.core.pad_catalog import STATIC_PAD_IDS
 from app.services.slot_scheduler import has_conflict, find_available_pad
 from fastapi import HTTPException, status
 import uuid
+
+
+logger = logging.getLogger(__name__)
 
 
 class SlotService:
@@ -74,6 +80,13 @@ class SlotService:
         
         end_time = start_time + timedelta(minutes=duration_minutes)
 
+        if vertipad_id and vertipad_id not in STATIC_PAD_IDS:
+            logger.warning("Rejected slot creation for unknown pad_id=%s", vertipad_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid pad_id: {vertipad_id}",
+            )
+
         if not vertipad_id:
             vertipad_id = find_available_pad(db, start_time, end_time)
 
@@ -89,6 +102,12 @@ class SlotService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Vertipad {vertipad_id} is not operational",
+            )
+
+        if pad.state in {VertipadState.OCCUPIED, VertipadState.CHARGING_ACTIVE} or pad.current_aircraft_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Vertipad {vertipad_id} is occupied",
             )
         
         existing_slots = (
@@ -328,6 +347,13 @@ class SlotService:
         start_before: Optional[datetime] = None,
     ) -> List[Slot]:
         """List slots with optional filters"""
+        if vertipad_id and vertipad_id not in STATIC_PAD_IDS:
+            logger.warning("Rejected slot list query for unknown pad_id=%s", vertipad_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid pad_id: {vertipad_id}",
+            )
+
         query = db.query(Slot)
         
         if vertipad_id:

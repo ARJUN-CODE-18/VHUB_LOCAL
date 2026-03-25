@@ -2,54 +2,49 @@ import apiClient from './client';
 import { Event } from '../types/event';
 
 export const eventsApi = {
-  /**
-   * Get all events/emergencies from dashboard status
-   * Backend: GET /dashboard/status returns emergency_status with aircraft_emergencies count
-   * Since there's no dedicated events endpoint, we derive events from dashboard
-   */
   getAll: async (): Promise<Event[]> => {
     try {
-      const response = await apiClient.get<unknown>('/dashboard/status');
-      
-      // Flatten nested backend response: { emergency_status: { ... } }
-      if (response.data && typeof response.data === 'object') {
-        const data = response.data as Record<string, unknown>;
-        const emergencyStatus = data.emergency_status as Record<string, unknown> | undefined;
-        
-        // Return empty array if no emergency status
-        // (Backend doesn't have dedicated events endpoint, so we can't retrieve them)
-        if (emergencyStatus && typeof emergencyStatus.aircraft_emergencies === 'number') {
-          // Return placeholder events if there are emergencies (real data would come from dedicated API)
-          const count = emergencyStatus.aircraft_emergencies as number;
-          if (count > 0) {
-            return Array.from({ length: count }, (_, i) => ({
-              id: `emergency-${i}`,
-              event_type: 'AIRCRAFT_EMERGENCY',
-              severity: 'CRITICAL',
-              timestamp: new Date().toISOString(),
-              entity_type: 'aircraft',
-              entity_id: `aircraft-${i}`,
-              details: { count },
-            })) as Event[];
-          }
-        }
-      }
-      
-      return [];
+      const response = await apiClient.get<{
+        emergency_aircraft: Array<{ id: string; tail_number: string; state: string }>;
+        locked_pads: Array<{ id: string; name: string; state: string }>;
+      }>('/emergency/status');
+
+      const aircraftEvents: Event[] = (response.data.emergency_aircraft || []).map((aircraft) => ({
+        id: `emergency-aircraft-${aircraft.id}`,
+        event_type: 'EMERGENCY_DECLARED',
+        severity: 'CRITICAL',
+        timestamp: new Date().toISOString(),
+        entity_type: 'aircraft',
+        entity_id: aircraft.id,
+        details: {
+          tail_number: aircraft.tail_number,
+          state: aircraft.state,
+        },
+      }));
+
+      const padEvents: Event[] = (response.data.locked_pads || []).map((pad) => ({
+        id: `emergency-pad-${pad.id}`,
+        event_type: 'EMERGENCY_DECLARED',
+        severity: 'CRITICAL',
+        timestamp: new Date().toISOString(),
+        entity_type: 'vertipad',
+        entity_id: pad.id,
+        details: {
+          name: pad.name,
+          state: pad.state,
+        },
+      }));
+
+      return [...aircraftEvents, ...padEvents];
     } catch {
       return [];
     }
   },
 
-  /**
-   * Get events for a specific aircraft
-   * Backend doesn't have dedicated endpoint, return empty
-   */
-  getByAircraft: async (): Promise<Event[]> => {
+  getByAircraft: async (aircraftId: string): Promise<Event[]> => {
     try {
-      // Would need dedicated backend endpoint like /aircraft/{id}/events
-      // For now return empty array
-      return [];
+      const all = await eventsApi.getAll();
+      return all.filter((event) => event.entity_type === 'aircraft' && event.entity_id === aircraftId);
     } catch {
       return [];
     }

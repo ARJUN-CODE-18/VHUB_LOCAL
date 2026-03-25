@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { aircraftApi } from '../../api/aircraft';
+import { VertiportEventBus } from '../../controllers/VertiportEventBus';
+import { addAircraft } from '../../state/aircraftStore';
 // note: using a loose `any` shape for formData to match runtime payload
 import ErrorDisplay from '../common/ErrorDisplay';
 
@@ -32,7 +34,11 @@ const RegisterAircraft = () => {
         battery_level: Number((formData as any).battery_level),
       };
 
-      await aircraftApi.create(payload);
+      const createdAircraft = await aircraftApi.create(payload);
+      const savedAircraft = addAircraft(createdAircraft);
+      if (savedAircraft) {
+        VertiportEventBus.emit('aircraft_added', savedAircraft);
+      }
       navigate('/aircraft');
     } catch (err: unknown) {
       console.error('Register aircraft failed:', err);

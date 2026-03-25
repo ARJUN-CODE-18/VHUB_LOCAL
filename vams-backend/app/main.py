@@ -3,18 +3,19 @@ Main FastAPI application entry point.
 Configures routes, middleware, and startup/shutdown events.
 """
 from fastapi import FastAPI
+from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.events import EventLogger, EventType, EventSeverity
 from app.db.session import engine
-from app.db.base import Base
 from app.db.models.audit import AuditLog
 from app.db.session import SessionLocal
 from datetime import datetime
 import logging
 from app.api.routes import debug
 from app.api.routes import operations
+from app.core.realtime import manager, build_updated_state
 
 # Import routers
 from app.api.routes import (
@@ -41,10 +42,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     logger.info("Starting VAMS Backend")
-    
-    # Create database tables
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created")
+    logger.info("Database initialization delegated to Alembic migrations")
     
     # Log system startup
     db = SessionLocal()
@@ -151,3 +149,27 @@ def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    db = SessionLocal()
+    try:
+        updated_state = build_updated_state(db)
+        await websocket.send_json(
+            {
+                "type": "UPDATE",
+                "data": updated_state,
+                "pads": updated_state["pads"],
+                "aircraft": updated_state["aircraft"],
+            }
+        )
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
+    finally:
+        db.close()

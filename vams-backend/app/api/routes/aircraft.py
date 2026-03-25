@@ -15,6 +15,7 @@ from app.schemas.aircraft import (
 )
 from app.services.aircraft_service import AircraftService
 from app.core.fsm.aircraft_fsm import AircraftState
+from app.core.realtime import broadcast_system_update_sync, broadcast_position_entity_updates_sync
 
 router = APIRouter(prefix="/aircraft", tags=["aircraft"])
 
@@ -35,6 +36,7 @@ def register_aircraft(
         max_range_km=data.max_range_km,
         battery_level=data.battery_level,
     )
+    broadcast_system_update_sync(db)
     return aircraft
 
 
@@ -86,6 +88,7 @@ def transition_aircraft_state(
         target_state=data.target_state,
         operator_id=operator,
     )
+    broadcast_system_update_sync(db)
     return aircraft
 
 
@@ -102,6 +105,7 @@ def update_battery_level(
         aircraft_id=aircraft_id,
         battery_level=data.battery_level,
     )
+    broadcast_system_update_sync(db)
     return aircraft
 
 
@@ -113,11 +117,16 @@ def update_position(
     operator: str = Depends(get_current_operator),
 ):
     """Update aircraft position"""
+    pad_id_is_explicit = "pad_id" in getattr(data, "model_fields_set", set())
     aircraft = AircraftService.update_position(
         db=db,
         aircraft_id=aircraft_id,
         latitude=data.latitude,
         longitude=data.longitude,
         altitude_m=data.altitude_m,
+        pad_id=data.pad_id,
+        update_pad_binding=pad_id_is_explicit,
     )
+    broadcast_system_update_sync(db)
+    broadcast_position_entity_updates_sync(db, aircraft_id=str(aircraft.id))
     return aircraft

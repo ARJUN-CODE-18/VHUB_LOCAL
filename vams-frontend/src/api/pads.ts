@@ -1,5 +1,6 @@
 import apiClient from './client';
-import { Pad } from '../types/pads';
+import { Pad, PadQueueItem, QueuePriority } from '../types/pads';
+import { Aircraft } from '../types/aircraft';
 
 /**
  * Normalizes backend responses into arrays.
@@ -20,13 +21,35 @@ function ensureArray<T>(data: unknown): T[] {
   return [];
 }
 
+function normalizePad(pad: any): Pad {
+  const normalizedQueue: PadQueueItem[] = Array.isArray(pad.queue)
+    ? pad.queue
+        .filter((item: any) => item && typeof item === 'object' && typeof item.aircraft_id === 'string')
+        .map((item: any) => ({
+          aircraft_id: item.aircraft_id,
+          priority: (item.priority ?? 'NORMAL') as QueuePriority,
+          timestamp: Number(item.timestamp ?? 0),
+        }))
+    : [];
+
+  return {
+    ...pad,
+    pad_number: pad.pad_number ?? pad.id,
+    status: pad.status ?? pad.state,
+    aircraft_id: pad.aircraft_id ?? pad.current_aircraft_id ?? undefined,
+    queue: normalizedQueue,
+  } as Pad;
+}
+
 export const padsApi = {
   /**
    * Fetch all pads (SAFE)
    */
   getAll: async (): Promise<Pad[]> => {
     const response = await apiClient.get<unknown>('/pad/'); // ✅ changed
-    return ensureArray<Pad>(response.data);
+    const pads = ensureArray<Pad>(response.data).map((pad) => normalizePad(pad));
+    console.log('PADS API RESPONSE:', pads);
+    return pads;
   },
 
   /**
@@ -34,7 +57,7 @@ export const padsApi = {
    */
   getById: async (id: string): Promise<Pad> => {
     const response = await apiClient.get<Pad>(`/pad/${id}`); // ✅ changed
-    return response.data;
+    return normalizePad(response.data);
   },
 
   /**
@@ -44,11 +67,11 @@ export const padsApi = {
     id: string,
     status: string
   ): Promise<Pad> => {
-    const response = await apiClient.patch<Pad>(
-      `/pad/${id}/status`, // ✅ changed
-      { status }
+    const response = await apiClient.post<Pad>(
+      `/pad/${id}/transition`,
+      { target_state: status }
     );
-    return response.data;
+    return normalizePad(response.data);
   },
 
   /**
@@ -56,13 +79,17 @@ export const padsApi = {
    */
   assignAircraft: async (
     id: string,
-    aircraft_id: string
+    aircraft_id: string,
+    priority?: QueuePriority
   ): Promise<Pad> => {
     const response = await apiClient.post<Pad>(
       `/pad/${id}/occupy`, // ✅ changed
-      { aircraft_id }
+      {
+        aircraft_id,
+        priority: priority ?? 'NORMAL',
+      }
     );
-    return response.data;
+    return normalizePad(response.data);
   },
 
   /**
@@ -73,6 +100,14 @@ export const padsApi = {
       `/pad/${id}/release`, // ✅ changed
       {}
     );
-    return response.data;
+    return normalizePad(response.data);
+  },
+
+  /**
+   * Fetch aircraft currently associated with a specific pad.
+   */
+  getAircraftByPad: async (padId: string): Promise<Aircraft[]> => {
+    const response = await apiClient.get<Aircraft[]>(`/pad/${padId}/aircraft`);
+    return Array.isArray(response.data) ? response.data : [];
   },
 };

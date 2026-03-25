@@ -43,6 +43,7 @@ const Energy = () => {
 
       setSessions(derivedSessions);
     } catch (err) {
+      console.error('API error loading energy data:', err);
       setError('Failed to load energy data');
     } finally {
       setLoading(false);

@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Boolean,
     Enum as SQLEnum,
+    ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
@@ -91,6 +92,9 @@ class Aircraft(Base, TimestampMixin):
     last_latitude: Any = Column(Float, nullable=True)
     last_longitude: Any = Column(Float, nullable=True)
     last_altitude_m: Any = Column(Float, nullable=True)
+
+    # Current pad association (if on-ground and assigned)
+    pad_id: Any = Column(String(20), ForeignKey("vertipad.id"), nullable=True, index=True)
 
     last_position_update: Any = Column(
         DateTime,

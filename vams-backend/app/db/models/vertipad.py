@@ -57,6 +57,9 @@ class Vertipad(Base, TimestampMixin):
     # ─────────────────────────────
     is_operational: Any = Column(Boolean, nullable=False, default=True)
 
+    # Backend-driven occupancy status for UI and integrations.
+    status: Any = Column(String(20), nullable=False, default="AVAILABLE", index=True)
+
     # Current occupancy
     current_aircraft_id: Any = Column(String(36), nullable=True, index=True)
 

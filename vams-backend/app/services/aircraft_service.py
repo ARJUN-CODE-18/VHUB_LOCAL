@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 from app.db.models.aircraft import Aircraft
+from app.db.models.vertipad import Vertipad
 from app.db.models.audit import AuditLog
 from app.core.fsm.aircraft_fsm import AircraftFSM, AircraftState, AircraftFSMViolation
+from app.core.fsm.pad_fsm import VertipadState
 from app.core.events import EventLogger, EventType, EventSeverity
+from app.core.pad_catalog import STATIC_PAD_IDS
 from fastapi import HTTPException, status
 
 
@@ -139,6 +142,19 @@ class AircraftService:
         
         # Update state
         aircraft.state = target_state
+
+        # Aircraft in air (or not yet operational on ground) should not be attached to a pad.
+        if target_state in {
+            AircraftState.REGISTERED,
+            AircraftState.EN_ROUTE_INBOUND,
+            AircraftState.APPROACH,
+            AircraftState.FINAL_APPROACH,
+            AircraftState.LANDING,
+            AircraftState.DEPARTING,
+            AircraftState.DEPARTED,
+            AircraftState.DEREGISTERED,
+        }:
+            aircraft.pad_id = None
         
         # Set emergency flag
         if target_state == AircraftState.EMERGENCY:
@@ -208,9 +224,11 @@ class AircraftService:
     def update_position(
         db: Session,
         aircraft_id: str,
-        latitude: float,
-        longitude: float,
-        altitude_m: float,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        altitude_m: Optional[float] = None,
+        pad_id: Optional[str] = None,
+        update_pad_binding: bool = False,
     ) -> Aircraft:
         """Update aircraft position"""
         aircraft = db.query(Aircraft).filter(Aircraft.id == aircraft_id).first()
@@ -221,9 +239,58 @@ class AircraftService:
                 detail=f"Aircraft {aircraft_id} not found",
             )
         
-        aircraft.last_latitude = latitude
-        aircraft.last_longitude = longitude
-        aircraft.last_altitude_m = altitude_m
+        if latitude is not None:
+            aircraft.last_latitude = latitude
+        if longitude is not None:
+            aircraft.last_longitude = longitude
+        if altitude_m is not None:
+            aircraft.last_altitude_m = altitude_m
+
+        if update_pad_binding:
+            previous_pad_id = aircraft.pad_id
+
+            # Clear prior pad occupancy when aircraft is moved away.
+            if previous_pad_id is not None and previous_pad_id != pad_id:
+                previous_pad = (
+                    db.query(Vertipad)
+                    .filter(Vertipad.id == previous_pad_id)
+                    .first()
+                )
+                if previous_pad and previous_pad.current_aircraft_id == aircraft.id:
+                    previous_pad.current_aircraft_id = None
+                    previous_pad.status = "AVAILABLE"
+                    previous_pad.state = VertipadState.AVAILABLE
+                    print(f"Aircraft assigned to pad: {aircraft.id} None")
+
+            if pad_id is None:
+                aircraft.pad_id = None
+            else:
+                target_pad = db.query(Vertipad).filter(Vertipad.id == pad_id).first()
+                if not target_pad:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Vertipad {pad_id} not found",
+                    )
+
+                # If another aircraft is currently on the target pad, detach it.
+                if (
+                    target_pad.current_aircraft_id
+                    and target_pad.current_aircraft_id != aircraft.id
+                ):
+                    displaced_aircraft = (
+                        db.query(Aircraft)
+                        .filter(Aircraft.id == target_pad.current_aircraft_id)
+                        .first()
+                    )
+                    if displaced_aircraft:
+                        displaced_aircraft.pad_id = None
+
+                aircraft.pad_id = pad_id
+                target_pad.current_aircraft_id = aircraft.id
+                target_pad.status = "OCCUPIED"
+                target_pad.state = VertipadState.OCCUPIED
+                print(f"Aircraft assigned to pad: {aircraft.id} {pad_id}")
+
         aircraft.last_position_update = datetime.utcnow()
         
         db.commit()
@@ -275,3 +342,19 @@ class AircraftService:
             query = query.filter(Aircraft.is_emergency == is_emergency)
         
         return query.all()
+
+    @staticmethod
+    def get_aircraft_by_pad(db: Session, pad_id: str) -> List[Aircraft]:
+        """List aircraft currently associated with a pad."""
+        if pad_id not in STATIC_PAD_IDS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid pad_id: {pad_id}",
+            )
+
+        return (
+            db.query(Aircraft)
+            .filter(Aircraft.pad_id == pad_id)
+            .order_by(Aircraft.updated_at.desc())
+            .all()
+        )

@@ -19,11 +19,16 @@ export enum AircraftState {
 
 export interface Aircraft {
   id: string;
+  pad_id?: string | null;
+  callsign?: string;
   tail_number: string;
   aircraft_type: string;
   operator: string;
+  battery?: number;
   weight_kg: number;
+  weight?: number;
   max_range_km: number;
+  maxRange?: number;
   battery_level: number;
   current_state: AircraftState;
   state: AircraftState; // alias for current_state

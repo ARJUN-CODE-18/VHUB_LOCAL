@@ -14,3 +14,11 @@ body {
 * {
   box-sizing: border-box;
 }
+
+.green {
+  background-color: #4caf50;
+}
+
+.red {
+  background-color: #f44336;
+}

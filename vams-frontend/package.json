@@ -5,25 +5,30 @@
   "main": "electron.js",
   "type": "module",
   "scripts": {
-    "clean": "node -e \"const fs=require('fs');['dist','release'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});}catch(e){console.warn('clean skipped',d,e.code||e.message);}})\"",
+    "clean": "node -e \"const fs=require('fs');['dist','build','release/latest','C:/Temp/vams-release'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});}catch(e){console.warn('clean skipped',d,e.code||e.message);}})\"",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "electron-build": "electron-builder",
+    "electron": "cross-env NODE_ENV=development electron .",
     "start": "electron .",
-    "dist": "npm run clean && npm run build && electron-builder"
+    "dist": "npm run clean && npm run build && electron-builder --config.directories.output=C:/Temp/vams-release && node -e \"const fs=require('fs');const path=require('path');const src='C:/Temp/vams-release';const dst='release/latest';fs.rmSync(dst,{recursive:true,force:true});fs.mkdirSync(dst,{recursive:true});for(const name of fs.readdirSync(src)){fs.cpSync(path.join(src,name),path.join(dst,name),{recursive:true});}\""
   },
   "build": {
-    "appId": "com.vertihub.vams",
+    "appId": "com.vams.app",
     "productName": "VAMS",
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false
     },
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "assets"
     },
+    "artifactName": "${productName} Setup.${ext}",
     "files": [
       "dist/**/*",
-      "electron.js"
+      "electron.js",
+      "package.json"
     ]
   },
   "dependencies": {
@@ -37,6 +42,7 @@
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
+    "cross-env": "^7.0.3",
     "electron": "^40.8.0",
     "electron-builder": "^26.8.1",
     "postcss": "^8.4.32",

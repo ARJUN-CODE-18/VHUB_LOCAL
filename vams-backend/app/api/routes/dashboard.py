@@ -14,6 +14,7 @@ from app.db.models.workflow import Workflow
 from app.db.models.weather import WeatherReport
 from app.core.fsm.vertipad_fsm import VertipadState
 from app.core.fsm.workflow_fsm import WorkflowState
+from app.core.pad_catalog import STATIC_PAD_IDS
 
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -35,7 +36,7 @@ def get_system_status(
     aircraft_by_state = {state: count for state, count in aircraft_counts}
     
     # Vertipad status
-    pads = db.query(Vertipad).all()
+    pads = db.query(Vertipad).filter(Vertipad.id.in_(STATIC_PAD_IDS)).all()
     pad_status = [
         {
             "id": p.id,
@@ -46,6 +47,8 @@ def get_system_status(
         }
         for p in pads
     ]
+    occupied_pads = sum(1 for p in pads if p.current_aircraft_id is not None)
+    available_pads = max(len(pads) - occupied_pads, 0)
     
     # Active workflows
     active_workflows = db.query(Workflow).filter(
@@ -62,12 +65,14 @@ def get_system_status(
     ).count()
     
     locked_pads = db.query(Vertipad).filter(
+        Vertipad.id.in_(STATIC_PAD_IDS),
         Vertipad.state == VertipadState.EMERGENCY_LOCKED
     ).count()
     
     # Upcoming slots (next 4 hours)
     now = datetime.utcnow()
     upcoming_slots = db.query(Slot).filter(
+        Slot.vertipad_id.in_(STATIC_PAD_IDS),
         Slot.start_time >= now,
         Slot.start_time <= now + timedelta(hours=4),
         Slot.status.in_([SlotStatus.CONFIRMED, SlotStatus.REQUESTED]),
@@ -89,6 +94,8 @@ def get_system_status(
         },
         "vertipads": {
             "total": len(pads),
+            "occupied": occupied_pads,
+            "available": available_pads,
             "status": pad_status,
             "locked_count": locked_pads,
         },
