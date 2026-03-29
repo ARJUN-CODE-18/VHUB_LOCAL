@@ -18,12 +18,7 @@ type AuthState = {
 
 type AuthSubscriber = () => void;
 
-let authState: AuthState = {
-  isAuthenticated: false,
-  accessToken: null,
-  tokenType: null,
-  userid: null,
-};
+let authState: AuthState;
 
 const subscribers = new Set<AuthSubscriber>();
 
@@ -49,11 +44,11 @@ export function isValidAuthToken(auth: Partial<AuthToken> | null | undefined): a
     return false;
   }
 
-  if (!isNonEmptyString(auth.token_type)) {
-    return false;
+  if (!auth.token_type) {
+    return true;
   }
 
-  return auth.token_type.toLowerCase() === 'bearer';
+  return isNonEmptyString(auth.token_type);
 }
 
 function getStoredAuthRecord(): { key: string; raw: string } | null {
@@ -103,7 +98,7 @@ function readPersistedAuthState(): AuthState {
 
     const normalized: AuthToken = {
       access_token: parsed.access_token.trim(),
-      token_type: parsed.token_type.trim().toLowerCase(),
+      token_type: (parsed.token_type ?? 'bearer').trim().toLowerCase(),
       userid: parsed.userid.trim(),
     };
 
@@ -200,3 +195,5 @@ function subscribeAuth(subscriber: AuthSubscriber): () => void {
 export function useAuthStore(): AuthState {
   return useSyncExternalStore(subscribeAuth, () => authState, () => authState);
 }
+
+authState = readPersistedAuthState();

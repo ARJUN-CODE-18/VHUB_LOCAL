@@ -2,16 +2,17 @@
   "name": "vams-frontend",
   "private": true,
   "version": "1.0.0",
-  "main": "electron.js",
+  "main": "electron/main.js",
   "type": "module",
   "scripts": {
-    "clean": "node -e \"const fs=require('fs');['dist','build','release/latest','C:/Temp/vams-release'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});}catch(e){console.warn('clean skipped',d,e.code||e.message);}})\"",
+    "clean": "node -e \"const fs=require('fs');['build','release/latest','C:/Temp/vams-release'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});}catch(e){console.warn('clean skipped',d,e.code||e.message);}})\"",
     "dev": "vite",
     "build": "vite build",
+    "build:electron": "npm run build && npm run electron",
     "electron-build": "npm run dist",
-    "electron": "cross-env NODE_ENV=development electron .",
+    "electron": "electron .",
     "electron:dev": "cross-env NODE_ENV=development ELECTRON_RENDERER_URL=http://localhost:5173 electron .",
-    "start": "electron .",
+    "start": "npm run electron",
     "dist": "npm run build && electron-builder --config.directories.output=C:/Temp/vams-release && node -e \"const fs=require('fs');const path=require('path');const src='C:/Temp/vams-release';const dst='release/latest';fs.rmSync(dst,{recursive:true,force:true});fs.mkdirSync(dst,{recursive:true});for(const name of fs.readdirSync(src)){fs.cpSync(path.join(src,name),path.join(dst,name),{recursive:true});}\""
   },
   "build": {
@@ -27,8 +28,8 @@
     },
     "artifactName": "${productName} Setup.${ext}",
     "files": [
-      "dist/**/*",
-      "electron.js",
+      "build/**/*",
+      "electron/main.js",
       "package.json"
     ]
   },
@@ -47,7 +48,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "cross-env": "^7.0.3",
-    "electron": "^40.8.0",
+    "electron": "^41.1.0",
     "electron-builder": "^26.8.1",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",

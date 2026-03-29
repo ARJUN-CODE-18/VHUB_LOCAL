@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { aircraftApi } from './api/aircraft';
 import Navigation from './components/layout/Navigation';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -18,8 +18,6 @@ import { VertiportEventBus } from './controllers/VertiportEventBus';
 import { setAircraftList, getAircraftList } from './state/aircraftStore';
 import { WS_UPDATES_URL } from './config/runtime';
 import { useAuthStore } from './store/authStore';
-
-const Router = HashRouter;
 
 function startRealtimeAircraftSync() {
   let socket: WebSocket | null = null;
