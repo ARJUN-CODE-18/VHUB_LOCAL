@@ -1,7 +1,7 @@
 import type { LatLngTuple } from 'leaflet';
 
 export const MAP_CONFIG = {
-  apiKey: 'Q6NYQ8GMY4tnpzEAhhc8',
+  apiKey: import.meta.env.VITE_MAP_API_KEY || 'Q6NYQ8GMY4tnpzEAhhc8',
   defaultCenter: [12.9716, 77.5946] as LatLngTuple,
   defaultZoom: 16,
   tileUrlTemplate:

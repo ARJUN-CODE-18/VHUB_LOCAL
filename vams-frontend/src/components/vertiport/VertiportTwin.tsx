@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { VertiportEventBus } from '../../controllers/VertiportEventBus';
 import { getAircraftList, type AircraftStoreItem } from '../../state/aircraftStore';
 import { edges, nodes, normalizeNodeId } from '../../config/vertiportLayout';
+import droneMarker from '../../assets/drone-marker.svg';
 
 interface AircraftRoute {
   aircraftId: string;
@@ -17,12 +18,22 @@ interface VertiportTwinProps {
 
 const SVG_WIDTH = 500;
 const SVG_HEIGHT = 500;
+const TWIN_METERS_PER_UNIT = 1.35;
 
 type TwinPosition = {
   id: string;
   currentNode: string;
   nextNode?: string;
   progress: number;
+};
+
+type DroneTelemetry = {
+  id: string;
+  x: number;
+  y: number;
+  targetNode?: string;
+  distanceToTargetM?: number;
+  isNearPad: boolean;
 };
 
 const RENDER_STATES = new Set(['TAXIING', 'IN_AIR', 'AT_PAD', 'CHARGING']);
@@ -92,6 +103,12 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
 
   function normalizeAircraftState(state?: string): string {
     return (state ?? '').toUpperCase();
+  }
+
+  function getDistanceMeters(x1: number, y1: number, x2: number, y2: number): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    return Math.round(Math.sqrt(dx * dx + dy * dy) * TWIN_METERS_PER_UNIT);
   }
 
   const renderableAircraft = useMemo(() => {
@@ -174,6 +191,45 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
     });
     return grouped;
   }, [aircraftPositions]);
+
+  const droneTelemetry = useMemo(() => {
+    const telemetry: DroneTelemetry[] = [];
+
+    aircraftPositions.forEach((entry) => {
+      const from = nodes[entry.currentNode];
+      const to = entry.nextNode ? nodes[entry.nextNode] : null;
+      if (!from) {
+        return;
+      }
+
+      const x = to ? from.x + (to.x - from.x) * entry.progress : from.x;
+      const y = to ? from.y + (to.y - from.y) * entry.progress : from.y + 20;
+
+      const ac = getAircraftById(entry.id);
+      const assignedNode = toTwinPadNode(ac?.pad_id ?? ac?.assigned_pad ?? null);
+      const targetNode = assignedNode && nodes[assignedNode] ? assignedNode : undefined;
+
+      let distanceToTargetM: number | undefined;
+      let isNearPad = false;
+
+      if (targetNode) {
+        const target = nodes[targetNode];
+        distanceToTargetM = getDistanceMeters(x, y, target.x, target.y);
+        isNearPad = distanceToTargetM <= 35;
+      }
+
+      telemetry.push({
+        id: entry.id,
+        x,
+        y,
+        targetNode,
+        distanceToTargetM,
+        isNearPad,
+      });
+    });
+
+    return telemetry;
+  }, [aircraftPositions, aircraftState]);
 
   // Render taxiway paths
   const renderTaxiways = () => {
@@ -286,13 +342,17 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
         const y = from.y + (to.y - from.y) * entry.progress;
         const ac = getAircraftById(entry.id);
         const color = getAircraftStatusColor(ac?.state);
+        const telemetry = droneTelemetry.find((item) => item.id === entry.id);
 
         return (
           <g key={`moving-${entry.id}`} transform={`translate(${x},${y})`}>
-            <circle cx="0" cy="0" r="10" fill={color} opacity="0.25" />
-            <text x="0" y="1" textAnchor="middle" dominantBaseline="central" fontSize="13" fill={color} fontWeight="bold" pointerEvents="none">
-              ✈
-            </text>
+            <circle cx="0" cy="0" r="13" fill={color} opacity="0.2" />
+            <image href={droneMarker} x="-11" y="-11" width="22" height="22" opacity="0.98" />
+            {telemetry?.distanceToTargetM != null && (
+              <text x="0" y="-16" textAnchor="middle" fontSize="9" fill={telemetry.isNearPad ? '#22c55e' : '#fbbf24'} fontWeight="700">
+                {telemetry.distanceToTargetM}m
+              </text>
+            )}
           </g>
         );
       });
@@ -309,13 +369,44 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
 
         const ac = getAircraftById(entry.id);
         const color = getAircraftStatusColor(ac?.state);
+        const telemetry = droneTelemetry.find((item) => item.id === entry.id);
 
         return (
           <g key={`stationary-${entry.id}`} transform={`translate(${node.x},${node.y + 20})`} onClick={() => onSelectAircraft(ac)}>
-            <circle cx="0" cy="0" r="10" fill={color} opacity="0.25" />
-            <text x="0" y="1" textAnchor="middle" dominantBaseline="central" fontSize="13" fill={color} fontWeight="bold" pointerEvents="auto" style={{ cursor: 'pointer' }}>
-              ✈
-            </text>
+            <circle cx="0" cy="0" r="13" fill={color} opacity="0.2" />
+            <image href={droneMarker} x="-11" y="-11" width="22" height="22" opacity="0.98" style={{ cursor: 'pointer' }} />
+            {telemetry?.distanceToTargetM != null && (
+              <text x="0" y="-16" textAnchor="middle" fontSize="9" fill={telemetry.isNearPad ? '#22c55e' : '#fbbf24'} fontWeight="700" pointerEvents="none">
+                {telemetry.distanceToTargetM}m
+              </text>
+            )}
+          </g>
+        );
+      });
+  };
+
+  const renderMovementTrails = () => {
+    return droneTelemetry
+      .filter((telemetry) => telemetry.targetNode)
+      .map((telemetry) => {
+        const target = telemetry.targetNode ? nodes[telemetry.targetNode] : null;
+        if (!target) {
+          return null;
+        }
+
+        return (
+          <g key={`trail-${telemetry.id}`}>
+            <line
+              x1={telemetry.x}
+              y1={telemetry.y}
+              x2={target.x}
+              y2={target.y}
+              stroke={telemetry.isNearPad ? '#22c55e' : '#fbbf24'}
+              strokeWidth="2"
+              strokeDasharray={telemetry.isNearPad ? '4 4' : '8 6'}
+              opacity="0.9"
+            />
+            <circle cx={target.x} cy={target.y} r="4" fill={telemetry.isNearPad ? '#22c55e' : '#fbbf24'} opacity="0.8" />
           </g>
         );
       });
@@ -359,6 +450,9 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
             {/* Taxiways */}
             <g id="taxiways">{renderTaxiways()}</g>
 
+            {/* Drone movement pathways to reach points */}
+            <g id="movement-trails">{renderMovementTrails()}</g>
+
             {/* Infrastructure */}
             <g id="pads">{renderPads()}</g>
             <g id="charging">{renderCharging()}</g>
@@ -376,7 +470,7 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
           <div className="flex flex-col h-full">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between">
-              <h3 className="font-bold text-lg">Aircraft Details</h3>
+              <h3 className="font-bold text-lg">Drone Details</h3>
               <button onClick={() => onSelectAircraft(undefined)} className="hover:bg-blue-500 p-1 rounded">
                 ✕
               </button>
@@ -468,6 +562,21 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
                 </div>
               )}
 
+              {(() => {
+                const telemetry = droneTelemetry.find((item) => item.id === selectedAircraft.id);
+                if (!telemetry?.distanceToTargetM) {
+                  return null;
+                }
+
+                return (
+                  <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg">
+                    <p className="text-xs font-semibold text-indigo-700 uppercase">Distance To Reach Point</p>
+                    <p className="text-lg font-bold text-indigo-900 mt-1">{telemetry.distanceToTargetM} m</p>
+                    <p className="text-xs text-indigo-700 mt-1">{telemetry.isNearPad ? 'Drone is near pad' : 'Drone en route to target pad'}</p>
+                  </div>
+                );
+              })()}
+
               {/* Emergency Alert */}
               {selectedAircraft.state?.toUpperCase() === 'EMERGENCY' && (
                 <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3">
@@ -478,8 +587,8 @@ const VertiportTwin = ({ aircraftRoutes: _aircraftRoutes, selectedAircraft, onSe
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-4">
-            <p className="text-4xl mb-2">✈</p>
-            <p className="text-sm">Click an aircraft to see details</p>
+            <img src={droneMarker} alt="drone" className="w-12 h-12 mb-2 opacity-80" />
+            <p className="text-sm">Click a drone to see details</p>
           </div>
         )}
       </div>

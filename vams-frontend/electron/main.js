@@ -23,15 +23,25 @@ async function createWindow() {
   });
 
   const indexPath = path.join(__dirname, '../build/index.html');
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  const isDev = process.env.NODE_ENV === 'development';
+
   await mainWindow.webContents.session.clearCache();
   await mainWindow.webContents.session.clearStorageData();
-  await mainWindow.loadFile(indexPath);
+
+  if (rendererUrl) {
+    await mainWindow.loadURL(rendererUrl);
+  } else {
+    await mainWindow.loadFile(indexPath);
+  }
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.executeJavaScript('console.log("[electron] href:", window.location.href)');
   });
 
-  mainWindow.webContents.openDevTools({ mode: 'detach' });
+  if (isDev) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
 }
 
 app.whenReady().then(createWindow);

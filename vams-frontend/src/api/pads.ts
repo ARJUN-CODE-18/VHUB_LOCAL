@@ -22,6 +22,14 @@ function ensureArray<T>(data: unknown): T[] {
 }
 
 function normalizePad(pad: any): Pad {
+  const rawStatus = String(pad.status ?? pad.state ?? 'AVAILABLE').toUpperCase();
+  const normalizedStatus =
+    rawStatus === 'CHARGING_ACTIVE'
+      ? 'CHARGING'
+      : rawStatus === 'EMERGENCY_LOCKED'
+        ? 'MAINTENANCE'
+        : rawStatus;
+
   const normalizedQueue: PadQueueItem[] = Array.isArray(pad.queue)
     ? pad.queue
         .filter((item: any) => item && typeof item === 'object' && typeof item.aircraft_id === 'string')
@@ -35,7 +43,7 @@ function normalizePad(pad: any): Pad {
   return {
     ...pad,
     pad_number: pad.pad_number ?? pad.id,
-    status: pad.status ?? pad.state,
+    status: normalizedStatus,
     aircraft_id: pad.aircraft_id ?? pad.current_aircraft_id ?? undefined,
     queue: normalizedQueue,
   } as Pad;

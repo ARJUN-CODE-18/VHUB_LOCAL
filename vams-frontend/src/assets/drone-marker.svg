@@ -1,0 +1,18 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="drone">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <circle cx="14" cy="14" r="8" fill="none" stroke="#0f172a" stroke-width="3"/>
+  <circle cx="50" cy="14" r="8" fill="none" stroke="#0f172a" stroke-width="3"/>
+  <circle cx="14" cy="50" r="8" fill="none" stroke="#0f172a" stroke-width="3"/>
+  <circle cx="50" cy="50" r="8" fill="none" stroke="#0f172a" stroke-width="3"/>
+  <line x1="20" y1="20" x2="26" y2="26" stroke="#0f172a" stroke-width="3"/>
+  <line x1="44" y1="20" x2="38" y2="26" stroke="#0f172a" stroke-width="3"/>
+  <line x1="20" y1="44" x2="26" y2="38" stroke="#0f172a" stroke-width="3"/>
+  <line x1="44" y1="44" x2="38" y2="38" stroke="#0f172a" stroke-width="3"/>
+  <rect x="22" y="22" width="20" height="20" rx="6" fill="url(#g)" stroke="#0f172a" stroke-width="3"/>
+  <circle cx="32" cy="32" r="4" fill="#e2e8f0"/>
+</svg>

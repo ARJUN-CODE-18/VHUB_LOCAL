@@ -18,6 +18,7 @@ import { VertiportEventBus } from './controllers/VertiportEventBus';
 import { setAircraftList, getAircraftList } from './state/aircraftStore';
 import { WS_UPDATES_URL } from './config/runtime';
 import { useAuthStore } from './store/authStore';
+import pilotCockpitWow from './assets/pilot-cockpit-wow.svg';
 
 function startRealtimeAircraftSync() {
   let socket: WebSocket | null = null;
@@ -132,9 +133,25 @@ function AppShell() {
   }, [isAuthenticated]);
 
   return (
-    <div className={isLoginRoute ? '' : 'min-h-screen bg-gray-100'}>
+    <div className="relative min-h-screen overflow-x-hidden app-ops-background">
+      <div className="fixed inset-0 -z-10 pointer-events-none app-ops-background-layer">
+        <img
+          src={pilotCockpitWow}
+          alt="aviation background"
+          className="h-full w-full object-cover opacity-95 scale-[1.03]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/8 via-transparent to-slate-950/30" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_3%,rgba(255,255,255,0.18),transparent_32%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(2,6,23,0.58),transparent_62%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-[44vh] bg-gradient-to-t from-slate-950/48 to-transparent" />
+        <div className="app-ops-panel-left" />
+        <div className="app-ops-panel-right" />
+        <div className="app-ops-frame" />
+        <div className="app-ops-canopy" />
+      </div>
+
       {!isLoginRoute && <Navigation />}
-      <div className={isLoginRoute ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
+      <div className={isLoginRoute ? 'relative z-10' : 'relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
         {!isLoginRoute && <h1 className="text-sm font-semibold text-blue-700 mb-4">VAMS VERSION V3</h1>}
         <Routes>
           <Route

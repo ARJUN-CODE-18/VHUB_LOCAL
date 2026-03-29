@@ -11,6 +11,7 @@ import VertipadTimeline from '../slots/VertipadTimeline';
 import TaxiRoute from '../taxi/TaxiRoute';
 import VertiportTwin from '../vertiport/VertiportTwin';
 import MapView from '../MapView';
+import DroneFlightScene3D from './DroneFlightScene3D';
 
 const Dashboard = () => {
   const [data, setData] = useState<DashboardStatus | null>(null);
@@ -178,13 +179,13 @@ const Dashboard = () => {
   /* ================= RENDER ================= */
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 dashboard-3d-shell">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-slate-900 drop-shadow-sm">Dashboard</h1>
         <button
           onClick={loadDashboard}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-700 text-white shadow-[0_10px_24px_rgba(8,47,73,0.35)] hover:shadow-[0_14px_30px_rgba(8,47,73,0.42)] transition-all"
         >
           🔄 Refresh
         </button>
@@ -195,7 +196,7 @@ const Dashboard = () => {
         {/* Aircraft */}
         <Link
           to="/aircraft"
-          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-6 transition-all hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(14,116,144,0.2)]"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -224,7 +225,7 @@ const Dashboard = () => {
         {/* Pads */}
         <Link
           to="/pads"
-          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-6 transition-all hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(14,116,144,0.2)]"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -243,7 +244,7 @@ const Dashboard = () => {
         </Link>
 
         {/* System Status */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-6 transition-all hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(14,116,144,0.2)]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">
@@ -278,7 +279,7 @@ const Dashboard = () => {
         {/* Slots */}
         <Link
           to="/slots"
-          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-6 transition-all hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(14,116,144,0.2)]"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -300,7 +301,12 @@ const Dashboard = () => {
         <ScheduleTaxiLanding />
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <DroneFlightScene3D
+        aircraft={aircraftFromStore}
+        pads={data.vertipads?.status ?? []}
+      />
+
+      <div className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-4">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Vertiport Map</h2>
         <MapView
           aircraft={aircraftFromStore}
@@ -308,7 +314,7 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-4">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Vertiport Digital Twin</h2>
         <VertiportTwin 
           aircraftRoutes={aircraftRoutes}
@@ -317,7 +323,7 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-4">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Taxi Route</h2>
         <TaxiRoute route={taxiRoute} aircraftRoutes={aircraftRoutes} />
         <OperationsPanel aircraftRoutes={aircraftRoutes} />
@@ -325,7 +331,7 @@ const Dashboard = () => {
       </div>
 
       {/* Footer */}
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="rounded-xl border border-cyan-100/70 bg-white/88 backdrop-blur-md shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-4">
         <p className="text-sm text-gray-500 text-center">
           Last updated: {new Date(data.timestamp).toLocaleString()}
         </p>

@@ -31,7 +31,7 @@ const TaxiRoute = ({ route, aircraftRoutes }: TaxiRouteProps) => {
       <div>{name}</div>
       {aircraftAtNode(name).map((aircraft) => (
         <div key={aircraft.aircraftId} className="text-[10px] leading-tight">
-          ✈ {aircraft.aircraftId}
+          🚁 {aircraft.aircraftId}
         </div>
       ))}
     </div>
@@ -62,7 +62,7 @@ const TaxiRoute = ({ route, aircraftRoutes }: TaxiRouteProps) => {
       <div className="flex gap-4 mt-4 text-sm justify-center">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 rounded" />
-          <span>Active Route</span>
+          <span>Active Drone Route</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-gray-300 rounded" />
