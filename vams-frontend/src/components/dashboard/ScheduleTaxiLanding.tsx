@@ -116,8 +116,12 @@ const ScheduleTaxiLanding = () => {
         payload.pad_id = selectedPad;
       }
       if (scheduledTime) {
-        payload.scheduled_time = toSchedulingDateTime(scheduledTime);
+        const formattedTime = toSchedulingDateTime(scheduledTime);
+        payload.scheduled_time = formattedTime;
+        console.log("SCHEDULING: Input time:", scheduledTime, "-> Formatted:", formattedTime);
       }
+
+      console.log("SCHEDULING_PAYLOAD:", JSON.stringify(payload, null, 2));
 
       const response = await operationsApi.schedule(payload);
 
@@ -152,8 +156,10 @@ const ScheduleTaxiLanding = () => {
         setMessage(`${response.operation_type} scheduled on ${response.slot?.vertipad_id ?? 'N/A'}`);
       }
     } catch (err) {
-      console.error(err);
-      setMessage(getErrorMessage(err));
+      console.error("SCHEDULING_ERROR:", err);
+      const errorMessage = getErrorMessage(err);
+      console.error("SCHEDULING_ERROR_DETAIL:", errorMessage);
+      setMessage(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
+import { clearAuthentication, useAuthStore } from '../../store/authStore';
 
 const Navigation = () => {
   const location = useLocation();
+  const { userid } = useAuthStore();
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: '📊' },
@@ -17,6 +19,10 @@ const Navigation = () => {
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = () => {
+    clearAuthentication();
   };
 
   return (
@@ -45,7 +51,14 @@ const Navigation = () => {
             </div>
           </div>
           <div className="flex items-center">
-            <span className="text-sm text-gray-500">Operator: test_operator</span>
+            <span className="text-sm text-gray-500 mr-4">Operator: {userid ?? 'N/A'}</span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-slate-700 rounded-md hover:bg-slate-800"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </div>

@@ -10,6 +10,7 @@ import OperationsPanel from '../operations/OperationsPanel';
 import VertipadTimeline from '../slots/VertipadTimeline';
 import TaxiRoute from '../taxi/TaxiRoute';
 import VertiportTwin from '../vertiport/VertiportTwin';
+import MapView from '../MapView';
 
 const Dashboard = () => {
   const [data, setData] = useState<DashboardStatus | null>(null);
@@ -297,6 +298,14 @@ const Dashboard = () => {
       <div>
         {/* Scheduling */}
         <ScheduleTaxiLanding />
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Vertiport Map</h2>
+        <MapView
+          aircraft={aircraftFromStore}
+          pads={data.vertipads?.status ?? []}
+        />
       </div>
 
       <div className="bg-white rounded-lg shadow p-4">

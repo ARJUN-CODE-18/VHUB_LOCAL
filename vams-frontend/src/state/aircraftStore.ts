@@ -4,9 +4,12 @@ export interface AircraftStoreItem {
   route?: string[];
   routeIndex?: number;
   position?: {
-    currentNode: string;
+    currentNode?: string;
     nextNode?: string;
-    progress: number;
+    progress?: number;
+    latitude?: number;
+    longitude?: number;
+    altitude?: number;
   };
   current_state?: string;
   tail_number?: string;
@@ -67,23 +70,31 @@ function normalizeAircraft(aircraft: AircraftStoreInput): AircraftStoreItem {
   if (aircraft.callsign !== undefined) normalized.callsign = aircraft.callsign;
   if (aircraft.route !== undefined) normalized.route = [...aircraft.route];
   if (aircraft.routeIndex !== undefined) normalized.routeIndex = aircraft.routeIndex;
-  if (
-    typeof aircraft.position === 'object'
-    && aircraft.position !== null
-    && 'currentNode' in aircraft.position
-    && 'progress' in aircraft.position
-  ) {
-    const movementPosition = aircraft.position as {
-      currentNode: string;
+  if (typeof aircraft.position === 'object' && aircraft.position !== null) {
+    const position = aircraft.position as {
+      currentNode?: string;
       nextNode?: string;
-      progress: number;
+      progress?: number;
+      latitude?: number;
+      longitude?: number;
+      altitude?: number;
     };
 
-    normalized.position = {
-      currentNode: movementPosition.currentNode,
-      progress: movementPosition.progress,
-      ...(movementPosition.nextNode ? { nextNode: movementPosition.nextNode } : {}),
-    };
+    const hasMovementPosition =
+      typeof position.currentNode === 'string' || typeof position.progress === 'number';
+    const hasGeoPosition =
+      typeof position.latitude === 'number' && typeof position.longitude === 'number';
+
+    if (hasMovementPosition || hasGeoPosition) {
+      normalized.position = {
+        ...(typeof position.currentNode === 'string' ? { currentNode: position.currentNode } : {}),
+        ...(typeof position.progress === 'number' ? { progress: position.progress } : {}),
+        ...(typeof position.nextNode === 'string' ? { nextNode: position.nextNode } : {}),
+        ...(typeof position.latitude === 'number' ? { latitude: position.latitude } : {}),
+        ...(typeof position.longitude === 'number' ? { longitude: position.longitude } : {}),
+        ...(typeof position.altitude === 'number' ? { altitude: position.altitude } : {}),
+      };
+    }
   }
 
   const batteryValue = aircraft.battery_level ?? aircraft.battery;

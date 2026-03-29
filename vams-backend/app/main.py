@@ -11,6 +11,7 @@ from app.core.events import EventLogger, EventType, EventSeverity
 from app.db.session import engine
 from app.db.models.audit import AuditLog
 from app.db.session import SessionLocal
+from app.db.seed_default_user import ensure_default_user
 from datetime import datetime
 import logging
 from app.api.routes import debug
@@ -19,6 +20,7 @@ from app.core.realtime import manager, build_updated_state
 
 # Import routers
 from app.api.routes import (
+    auth,
     aircraft,
     pad,
     slots,
@@ -47,6 +49,10 @@ async def lifespan(app: FastAPI):
     # Log system startup
     db = SessionLocal()
     try:
+        created_default_user = ensure_default_user(db)
+        if created_default_user:
+            logger.info("Default auth user created")
+
         event = EventLogger.create_event(
             event_type=EventType.SYSTEM_STARTUP,
             severity=EventSeverity.INFO,
@@ -120,6 +126,7 @@ app.add_middleware(
 app.include_router(operations.router)
 
 # Include routers
+app.include_router(auth.router)
 app.include_router(aircraft.router)
 app.include_router(pad.router)
 app.include_router(slots.router)
@@ -153,9 +160,12 @@ def health_check():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time system updates"""
     await manager.connect(websocket)
+    logger.info(f"WebSocket connection opened. Total connections: {len(manager.active_connections)}")
     db = SessionLocal()
     try:
+        # Send initial state on connection
         updated_state = build_updated_state(db)
         await websocket.send_json(
             {
@@ -165,11 +175,17 @@ async def websocket_endpoint(websocket: WebSocket):
                 "aircraft": updated_state["aircraft"],
             }
         )
+        logger.info("Initial state sent to WebSocket client")
+        
+        # Keep connection open and listen for ping/keep-alive messages
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            logger.debug(f"WebSocket received message: {data}")
     except WebSocketDisconnect:
+        logger.info(f"WebSocket connection closed. Total connections: {len(manager.active_connections)}")
         manager.disconnect(websocket)
-    except Exception:
+    except Exception as e:
+        logger.error(f"WebSocket error: {type(e).__name__}: {str(e)}")
         manager.disconnect(websocket)
     finally:
         db.close()

@@ -1,2 +1,4 @@
 vams-frontend/release/*.exe filter=lfs diff=lfs merge=lfs -text
 vams-frontend/release/win-unpacked/*.exe filter=lfs diff=lfs merge=lfs -text
+vams-frontend/release/latest/win-unpacked/VAMS.exe filter=lfs diff=lfs merge=lfs -text
+vams-frontend/release/win-unpacked/VAMS.exe filter=lfs diff=lfs merge=lfs -text

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/runtime';
+import { getAccessToken } from '../store/authStore';
 
 const http = axios.create({
   baseURL: API_BASE_URL,
@@ -13,6 +14,11 @@ http.interceptors.request.use((config) => {
 
   // Add API key header expected by backend auth dependency.
   config.headers[apiKeyHeader] = apiKey;
+
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
 
   if (import.meta.env.DEV) {
     console.log('[api-client] Outgoing request:', config.method, config.url);

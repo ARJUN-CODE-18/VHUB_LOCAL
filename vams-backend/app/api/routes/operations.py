@@ -27,6 +27,8 @@ def schedule_operation(
     """
     Schedule taxi or landing operation
     """
+    logger.info("SCHEDULE_OPERATION_ENDPOINT: Received payload: aircraft_id=%s, operation_type=%s, priority=%s, pad_id=%s, scheduled_time=%s, operator=%s",
+                payload.aircraft_id, payload.operation_type, payload.priority, payload.pad_id, payload.scheduled_time, operator)
 
     scheduler = SchedulerService(db)
 
@@ -39,11 +41,13 @@ def schedule_operation(
             scheduled_time=payload.scheduled_time,
             operator_id=operator,
         )
+        logger.info("SCHEDULE_OPERATION_SUCCESS: Result status=%s", result.get("status"))
         broadcast_system_update_sync(db)
         return result
 
     except HTTPException:
+        logger.error("SCHEDULE_OPERATION_FAILED: HTTPException raised")
         raise
     except Exception as e:
-        logger.exception("SCHEDULING ERROR: %s", str(e))
+        logger.exception("SCHEDULE_OPERATION_FAILED: Exception occurred: %s (type=%s)", str(e), type(e).__name__)
         raise HTTPException(status_code=400, detail=str(e))

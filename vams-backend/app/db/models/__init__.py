@@ -6,3 +6,4 @@ from app.db.models.vertipad import Vertipad
 from app.db.models.slot import Slot
 from app.db.models.weather import WeatherReport
 from app.db.models.workflow import Workflow
+from app.db.models.user import User

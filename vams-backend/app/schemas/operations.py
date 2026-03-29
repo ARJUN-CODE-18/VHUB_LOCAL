@@ -4,9 +4,12 @@ Schemas for operations scheduling endpoints.
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+import logging
 
 from pydantic import BaseModel, Field, field_validator
 from app.core.priority import PriorityLevel
+
+logger = logging.getLogger(__name__)
 
 
 class OperationType(str, Enum):
@@ -39,16 +42,23 @@ class OperationScheduleRequest(BaseModel):
     @field_validator("scheduled_time", mode="before")
     @classmethod
     def normalize_scheduled_time(cls, value):
+        logger.info("SCHEMA_VALIDATOR: scheduled_time received: value=%s (type=%s)", value, type(value).__name__)
+        
         if value is None or value == "":
+            logger.info("SCHEMA_VALIDATOR: scheduled_time is None or empty")
             return None
 
         if isinstance(value, datetime):
+            logger.info("SCHEMA_VALIDATOR: scheduled_time is already datetime: %s", value)
             return value
 
         if isinstance(value, str):
             try:
-                return datetime.strptime(value.strip(), "%Y-%m-%dT%H:%M:%S")
+                parsed = datetime.strptime(value.strip(), "%Y-%m-%dT%H:%M:%S")
+                logger.info("SCHEMA_VALIDATOR: Successfully parsed datetime: %s -> %s", value, parsed)
+                return parsed
             except ValueError as exc:
+                logger.error("SCHEMA_VALIDATOR: Failed to parse datetime: %s (format expected: YYYY-MM-DDTHH:MM:SS)", value)
                 raise ValueError("Invalid datetime format. Use YYYY-MM-DDTHH:MM:SS") from exc
 
         raise ValueError("Invalid datetime format. Use YYYY-MM-DDTHH:MM:SS")

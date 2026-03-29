@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { ApiError } from '../types/api';
 import { API_BASE_URL } from '../config/runtime';
+import { getAccessToken } from '../store/authStore';
 
 export const http = axios.create({
   baseURL: API_BASE_URL,
@@ -14,6 +15,11 @@ http.interceptors.request.use((config) => {
   const apiKey = import.meta.env.VITE_API_KEY || 'dev-operator-key';
 
   config.headers['X-API-Key'] = apiKey;
+
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
 
   if (import.meta.env.DEV) {
     console.log(

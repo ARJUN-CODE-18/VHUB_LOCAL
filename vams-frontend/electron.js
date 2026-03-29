@@ -4,13 +4,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const isDev = process.env.NODE_ENV === 'development';
+const devServerUrl = process.env.ELECTRON_RENDERER_URL || 'http://localhost:5173';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function resolveDistIndexPath() {
   const candidates = [
+    path.join(__dirname, 'build', 'index.html'),
     path.join(__dirname, 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'app.asar', 'build', 'index.html'),
     path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'app', 'build', 'index.html'),
     path.join(process.resourcesPath, 'app', 'dist', 'index.html'),
   ];
 
@@ -47,12 +51,11 @@ async function createWindow() {
   });
 
   if (isDev) {
-    console.log('[electron] Loading dev URL: http://localhost:5173');
-    await mainWindow.loadURL('http://localhost:5173');
+    console.log('[electron] Loading dev URL:', devServerUrl);
+    await mainWindow.loadURL(devServerUrl);
   } else {
     const distIndexPath = resolveDistIndexPath();
-    console.log('Loading latest build...');
-    console.log('[electron] Loading file:', distIndexPath);
+    console.log('[electron] Loading latest frontend build from:', distIndexPath);
     await mainWindow.loadFile(distIndexPath);
   }
 
